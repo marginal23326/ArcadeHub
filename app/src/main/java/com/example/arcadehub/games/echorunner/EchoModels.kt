@@ -1,7 +1,6 @@
 package com.example.arcadehub.games.echorunner
 
 enum class DimensionType { REAL, ECHO }
-enum class GameState { MENU, PLAYING, GAMEOVER }
 
 class Player {
     var x = 0f

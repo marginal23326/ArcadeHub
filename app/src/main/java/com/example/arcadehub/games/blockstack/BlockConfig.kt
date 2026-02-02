@@ -2,6 +2,7 @@ package com.example.arcadehub.games.blockstack
 
 import android.graphics.Color
 import com.example.arcadehub.managers.SaveManager
+import androidx.core.graphics.toColorInt
 
 object BlockConfig {
     // --- DIMENSIONS (Based on 1920x1080 Logic) ---
@@ -38,17 +39,17 @@ object BlockConfig {
     const val WIDENER_PERCENT = 0.20f
 
     // --- COLORS ---
-    val BG_COLOR = Color.parseColor("#212121")
-    val SHOP_BG_COLOR = Color.parseColor("#101010")
-    val SELECTION_COLOR = Color.parseColor("#FFD700")
+    val BG_COLOR = "#212121".toColorInt()
+    val SHOP_BG_COLOR = "#101010".toColorInt()
+    val SELECTION_COLOR = "#FFD700".toColorInt()
 
     val COLORS = listOf(
-        Color.parseColor("#F44336"), Color.parseColor("#E91E63"), Color.parseColor("#9C27B0"),
-        Color.parseColor("#673AB7"), Color.parseColor("#3F51B5"), Color.parseColor("#2196F3"),
-        Color.parseColor("#03A9F4"), Color.parseColor("#00BCD4"), Color.parseColor("#009688"),
-        Color.parseColor("#4CAF50"), Color.parseColor("#8BC34A"), Color.parseColor("#CDDC39"),
-        Color.parseColor("#FFEB3B"), Color.parseColor("#FFC107"), Color.parseColor("#FF9800"),
-        Color.parseColor("#FF5722")
+        "#F44336".toColorInt(), "#E91E63".toColorInt(), "#9C27B0".toColorInt(),
+        "#673AB7".toColorInt(), "#3F51B5".toColorInt(), "#2196F3".toColorInt(),
+        "#03A9F4".toColorInt(), "#00BCD4".toColorInt(), "#009688".toColorInt(),
+        "#4CAF50".toColorInt(), "#8BC34A".toColorInt(), "#CDDC39".toColorInt(),
+        "#FFEB3B".toColorInt(), "#FFC107".toColorInt(), "#FF9800".toColorInt(),
+        "#FF5722".toColorInt()
     )
 
     const val COLOR_PERFECT = 0xFF00FFFF.toInt()

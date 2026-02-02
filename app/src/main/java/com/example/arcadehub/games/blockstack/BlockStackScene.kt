@@ -17,10 +17,11 @@ class BlockStackScene : Scene {
     private val renderer = BlockRenderer()
     val cameraSystem = CameraSystem()
     var gameMode: GameMode = GameMode.LINEAR
-    lateinit var physics: PhysicsStrategy // Changed to public/lateinit for access if needed
+    lateinit var physics: PhysicsStrategy
 
     var isGameStarted = false
     var isGameOver = false
+    var isPaused = false
     var isZoomedOut = false
     var shopSelectionIndex = 4
 
@@ -52,7 +53,10 @@ class BlockStackScene : Scene {
 
     private fun loadData() { highScore = SaveManager.getInt("BS_HIGHSCORE_${gameMode.name}") }
     private fun saveData() { SaveManager.saveHighScore("BS_HIGHSCORE_${gameMode.name}", highScore) }
+
     override fun update(dt: Float) {
+        if (isPaused) return
+
         while (inputQueue.isNotEmpty()) {
             handleInputInternal(inputQueue.poll() ?: continue)
         }
@@ -64,6 +68,7 @@ class BlockStackScene : Scene {
             physics.update(Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, dtScale)
         }
 
+        // Camera logic
         if (isGameStarted) {
             if (gameMode == GameMode.LINEAR) {
                 val p = physics as LinearPhysics
@@ -85,7 +90,6 @@ class BlockStackScene : Scene {
                 cameraSystem.targetCameraOffsetX = 0f
 
             } else {
-                // --- ORBIT MODE ---
                 val offX = physics.getCameraTargetX()
                 val offY = physics.getCameraTargetY()
                 val scaleTarget = physics.getCameraScaleTarget(Constants.LOGIC_HEIGHT, isGameOver, isZoomedOut)
@@ -115,7 +119,31 @@ class BlockStackScene : Scene {
     }
 
     override fun onInput(action: InputAction, isDown: Boolean) {
-        if(isDown) inputQueue.add(action)
+        if (!isDown) return // Only handle presses
+
+        if (isPaused) {
+            when (action) {
+                InputAction.SELECT -> {
+                    isPaused = false
+                    SoundManager.playSelect()
+                }
+                InputAction.BACK -> {
+                    saveData() // Save progress/score if needed before quitting
+                    SceneManager.switchScene(HubScene())
+                }
+                else -> {}
+            }
+            return
+        }
+
+        if (isGameStarted && !isGameOver && action == InputAction.BACK) {
+            isPaused = true
+            SoundManager.playSelect()
+            return
+        }
+
+        // Standard input queue
+        inputQueue.add(action)
     }
 
     private fun handleInputInternal(action: InputAction) {
@@ -165,7 +193,7 @@ class BlockStackScene : Scene {
     }
 
     private fun startGame() {
-        isGameStarted = true; isGameOver = false; score = 0; runCoins = 0
+        isGameStarted = true; isGameOver = false; isPaused = false; score = 0; runCoins = 0
         perfectCount = 0; greatCount = 0; niceCount = 0; perfectStreak = 0
         activeSloMoTurns = 0; isMagnetActive = false; isWidenerActive = false; secondChanceUsed = false
         cameraSystem.reset()

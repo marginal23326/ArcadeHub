@@ -28,6 +28,7 @@ class BlockRenderer {
     private val selectionPaint = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 8f; color = BlockConfig.SELECTION_COLOR; isAntiAlias = true }
     private val shopBoxPaint = Paint().apply { style = Paint.Style.FILL; color = BlockConfig.SHOP_BG_COLOR; isAntiAlias = true }
     private val overlayPaint = Paint().apply { style = Paint.Style.FILL; color = Color.BLACK; alpha = 180 }
+    private val pauseOverlayPaint = Paint().apply { style = Paint.Style.FILL; color = Color.BLACK; alpha = 200 }
 
     private var lastRenderedScore = -1
     private var scoreString = "0"
@@ -50,10 +51,30 @@ class BlockRenderer {
                 drawRadialWorld(canvas, scene, physics as RadialPhysics, screenWidth, screenHeight)
             }
             drawHUD(canvas, scene, screenWidth)
+
+            if (scene.isPaused) {
+                drawPauseScreen(canvas, screenWidth, screenHeight)
+            }
+
             if (scene.isGameOver) {
                 drawGameOverUI(canvas, scene, screenWidth, screenHeight)
             }
         }
+    }
+
+    private fun drawPauseScreen(canvas: Canvas, w: Int, h: Int) {
+        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), pauseOverlayPaint)
+
+        val cx = w / 2f
+        val cy = h / 2f
+
+        titlePaint.textSize = 100f
+        canvas.drawText("PAUSED", cx, cy - 50f, titlePaint)
+
+        shopTextPaint.textSize = 40f
+        shopTextPaint.color = Color.WHITE
+        canvas.drawText("CENTER to Resume", cx, cy + 50f, shopTextPaint)
+        canvas.drawText("BACK to Quit", cx, cy + 120f, shopTextPaint)
     }
 
     private fun drawStartScreen(canvas: Canvas, scene: BlockStackScene, w: Int, h: Int) {
@@ -104,7 +125,7 @@ class BlockRenderer {
                 AbilityType.SLO_MO -> "<<"
                 AbilityType.MAGNET -> "U"
                 AbilityType.WIDENER -> "<->"
-                AbilityType.SECOND_CHANCE -> "ΓÖÑ"
+                AbilityType.SECOND_CHANCE -> "♥"
             }
             canvas.drawText(symbol, x + itemSize / 2, startY + 100f, shopTextPaint)
 
@@ -283,13 +304,13 @@ class BlockRenderer {
         val revives = BlockEconomy.getInventoryCount(AbilityType.SECOND_CHANCE)
         if (revives > 0) {
             hudCoinPaint.color = Color.RED
-            canvas.drawText("ΓÖÑ $revives", w - 30f, 110f, hudCoinPaint)
+            canvas.drawText("♥ $revives", w - 30f, 110f, hudCoinPaint)
         }
 
         val startY = 300f; val gap = 120f; val x = 30f
-        drawAbilityRow(canvas, x, startY, AbilityType.SLO_MO, "Γùä", scene.activeSloMoTurns > 0)
-        drawAbilityRow(canvas, x, startY + gap, AbilityType.MAGNET, "Γû▓", scene.isMagnetActive)
-        drawAbilityRow(canvas, x, startY + gap * 2, AbilityType.WIDENER, "Γû║", false)
+        drawAbilityRow(canvas, x, startY, AbilityType.SLO_MO, "◄", scene.activeSloMoTurns > 0)
+        drawAbilityRow(canvas, x, startY + gap, AbilityType.MAGNET, "▲", scene.isMagnetActive)
+        drawAbilityRow(canvas, x, startY + gap * 2, AbilityType.WIDENER, "►", false)
     }
 
     private fun drawAbilityRow(canvas: Canvas, x: Float, y: Float, type: AbilityType, key: String, isActive: Boolean) {
@@ -320,7 +341,7 @@ class BlockRenderer {
         if (scene.isZoomedOut) {
             canvas.drawRect(0f, h - 150f, w.toFloat(), h.toFloat(), overlayPaint)
             shopTextPaint.textSize = 35f; shopTextPaint.color = Color.WHITE
-            canvas.drawText("Γû╝ Reset Zoom | CENTER Retry | BACK Menu", cx, h - 60f, shopTextPaint)
+            canvas.drawText("▼ Reset Zoom | CENTER Retry | BACK Menu", cx, h - 60f, shopTextPaint)
             return
         }
 
@@ -342,7 +363,7 @@ class BlockRenderer {
             val footerH = 120f
             canvas.drawRect(0f, h - footerH - 40f, w.toFloat(), h.toFloat(), overlayPaint)
             shopTextPaint.textSize = 35f; shopTextPaint.color = Color.WHITE
-            val viewText = if(isOrbit) "Γû╝ Zoom Out" else "Γû╝ View Tower"
+            val viewText = if(isOrbit) "▼ Zoom Out" else "▼ View Tower"
             canvas.drawText("$viewText | CENTER Retry | BACK Menu", cx, h - 80f, shopTextPaint)
         }
     }

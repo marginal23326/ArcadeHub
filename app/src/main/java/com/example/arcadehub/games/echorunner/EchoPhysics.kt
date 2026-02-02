@@ -8,23 +8,22 @@ class EchoPhysics {
     private val obstaclePool = Array(25) { Obstacle() }
     val particles = Array(EchoConfig.PARTICLE_COUNT) { Particle() }
 
-    var state = GameState.MENU
     var score = 0
     private var speed = EchoConfig.BASE_SPEED
     private var timeInGame = 0f
     private var spawnTimer = 0f
-    private var restartCooldown = 0f
+
+    var isDead = false
 
     private var worldWidth = Constants.LOGIC_WIDTH
     private var worldHeight = Constants.LOGIC_HEIGHT
 
     fun reset() {
-        state = GameState.MENU
+        isDead = false
         score = 0
         speed = EchoConfig.BASE_SPEED
         timeInGame = 0f
         spawnTimer = 0f
-        restartCooldown = 0f
 
         player.x = worldWidth * 0.15f
         player.y = worldHeight / 2f - player.size / 2f
@@ -34,41 +33,22 @@ class EchoPhysics {
         particles.forEach { it.active = false }
     }
 
-    fun startGame() {
-        if (state != GameState.PLAYING) {
-            state = GameState.PLAYING
-            player.isEcho = true
-        }
-    }
-
     /**
-     * @param active True if holding button (Echo Dimension), False if released (Real Dimension)
+     * @param active True if holding button (Echo Dimension)
      */
     fun setInput(active: Boolean) {
-        if (state == GameState.MENU && active) startGame()
-        else if (state == GameState.PLAYING) player.isEcho = active
-        else if (state == GameState.GAMEOVER) {
-            // Only restart if button is released first to prevent accidental restarts
-            if (!active && restartCooldown <= 0f) {
-                reset()
-            }
+        if (!isDead) {
+            player.isEcho = active
         }
     }
 
     fun update(dt: Float) {
-        // Limit dt to prevent tunnelling on lag spikes
-        val safeDt = dt.coerceAtMost(0.1f)
-
-        if (state == GameState.GAMEOVER) {
-            if (restartCooldown > 0f) {
-                restartCooldown -= safeDt
-            }
-            updateParticles(safeDt)
+        if (isDead) {
+            updateParticles(dt)
             return
         }
 
-        if (state != GameState.PLAYING) return
-
+        val safeDt = dt.coerceAtMost(0.1f)
         timeInGame += safeDt
 
         // 1. DYNAMIC SPEED
@@ -110,7 +90,6 @@ class EchoPhysics {
             if (obs.x + obs.w < 0) obs.active = false
 
             // Collision
-            // AABB Collision Check
             if (player.x < obs.x + obs.w &&
                 player.x + player.size > obs.x &&
                 player.y < obs.y + obs.h &&
@@ -119,7 +98,7 @@ class EchoPhysics {
                 val isRealCrash = (obs.type == DimensionType.REAL && !player.isEcho)
                 val isEchoCrash = (obs.type == DimensionType.ECHO && player.isEcho)
 
-                if (isRealCrash || isEchoCrash) gameOver()
+                if (isRealCrash || isEchoCrash) triggerDeath()
             }
         }
 
@@ -143,21 +122,16 @@ class EchoPhysics {
         obs.passed = false
         obs.type = if (Random.nextBoolean()) DimensionType.REAL else DimensionType.ECHO
         obs.w = 90f
-
-        // Random height but within the floor/ceiling bounds
         obs.h = Random.nextFloat() * 180f + 120f
         obs.x = worldWidth.toFloat()
         obs.y = (worldHeight / 2f) - (obs.h / 2f)
-
-        // At high speeds, randomly offset Y to make it harder
         if (speed > 1500f) {
             obs.y += (Random.nextFloat() - 0.5f) * 150f
         }
     }
 
-    private fun gameOver() {
-        state = GameState.GAMEOVER
-        restartCooldown = 1f // 1 sec of mandatory score viewing
+    private fun triggerDeath() {
+        isDead = true
         val color = if (player.isEcho) EchoConfig.COLOR_ECHO_FG else EchoConfig.COLOR_REAL_FG
         spawnExplosion(player.x + player.size/2, player.y + player.size/2, color)
     }
@@ -180,5 +154,4 @@ class EchoPhysics {
 
     fun getSpeed() = speed
     fun getActiveObstacles() = obstaclePool
-    fun canRestart() = state == GameState.GAMEOVER && restartCooldown <= 0f
 }

@@ -16,14 +16,18 @@ class OrbitHopScene : Scene {
 
     private var highScore = 0
     private var isGameOverSoundPlayed = false
+    private var isPaused = false // <--- NEW FLAG
 
     override fun enter() {
         physics.reset(Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT)
         highScore = SaveManager.getInt("ORBIT_HIGHSCORE", 0)
         isGameOverSoundPlayed = false
+        isPaused = false
     }
 
     override fun update(dt: Float) {
+        if (isPaused) return // Skip updates if paused
+
         physics.update(Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, dt)
 
         if (physics.player.state == PlayerState.DEAD) {
@@ -39,11 +43,26 @@ class OrbitHopScene : Scene {
     }
 
     override fun draw(canvas: Canvas) {
-        renderer.draw(canvas, physics, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, highScore)
+        renderer.draw(canvas, physics, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, highScore, isPaused)
     }
 
     override fun onInput(action: InputAction, isDown: Boolean) {
         if (!isDown) return
+
+        // --- PAUSE HANDLING ---
+        if (isPaused) {
+            when (action) {
+                InputAction.SELECT -> {
+                    isPaused = false
+                    SoundManager.playSelect()
+                }
+                InputAction.BACK -> {
+                    SceneManager.switchScene(HubScene())
+                }
+                else -> {}
+            }
+            return
+        }
 
         when (action) {
             InputAction.SELECT,
@@ -62,7 +81,13 @@ class OrbitHopScene : Scene {
                 }
             }
             InputAction.BACK -> {
-                SceneManager.switchScene(HubScene())
+                // If Playing (Attached or Flying), Pause. Otherwise (Dead), Quit.
+                if (physics.player.state == PlayerState.DEAD) {
+                    SceneManager.switchScene(HubScene())
+                } else {
+                    isPaused = true
+                    SoundManager.playSelect()
+                }
             }
         }
     }

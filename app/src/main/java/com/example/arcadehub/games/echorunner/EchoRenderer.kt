@@ -17,6 +17,7 @@ class EchoRenderer {
 
     private val textPaint = Paint().apply { typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER; isAntiAlias = true }
     private val hudPaint = Paint().apply { textSize = 35f; typeface = Typeface.MONOSPACE; textAlign = Paint.Align.LEFT; isAntiAlias = true }
+    private val pauseOverlayPaint = Paint().apply { color = Color.BLACK; style = Paint.Style.FILL; alpha = 200 }
 
     // Caching
     private var cachedScore = -1
@@ -25,7 +26,7 @@ class EchoRenderer {
     private var cachedSpeedStr = "SPEED: 1.0x"
     private val particlePoints = FloatArray(EchoConfig.PARTICLE_COUNT * 2)
 
-    fun draw(canvas: Canvas, physics: EchoPhysics, width: Int, height: Int, bestScore: Int) {
+    fun draw(canvas: Canvas, scene: EchoRunnerScene, physics: EchoPhysics, width: Int, height: Int, bestScore: Int) {
         val isEcho = physics.player.isEcho
         val fgColor = if (isEcho) EchoConfig.COLOR_ECHO_FG else EchoConfig.COLOR_REAL_FG
 
@@ -53,7 +54,6 @@ class EchoRenderer {
                 canvas.drawRect(obs.x, obs.y, obs.x + obs.w, obs.y + obs.h, obsPaintSolid)
             } else {
                 canvas.drawRect(obs.x, obs.y, obs.x + obs.w, obs.y + obs.h, obsPaintGhost)
-                // Add an X to ghosts
                 canvas.drawLine(obs.x, obs.y, obs.x + obs.w, obs.y + obs.h, obsPaintGhost)
             }
         }
@@ -70,8 +70,8 @@ class EchoRenderer {
             canvas.drawPoints(particlePoints, 0, pCount, obsPaintSolid)
         }
 
-        // 4. Player
-        if (physics.state != GameState.GAMEOVER) {
+        // 4. Player (Don't draw if game hasn't started yet)
+        if (scene.isGameStarted && !scene.isGameOver) {
             val player = physics.player
             canvas.drawRect(player.drawX, player.y, player.drawX + player.size, player.y + player.size, obsPaintSolid)
         }
@@ -87,7 +87,7 @@ class EchoRenderer {
         hudPaint.textAlign = Paint.Align.RIGHT
         canvas.drawText("BEST: $bestScore", width - 30f, 60f, hudPaint)
 
-        drawOverlays(canvas, physics, width, height)
+        drawOverlays(canvas, scene, physics, width, height)
     }
 
     private fun updateStrings(score: Int, speed: Float) {
@@ -102,30 +102,47 @@ class EchoRenderer {
         }
     }
 
-    private fun drawOverlays(canvas: Canvas, physics: EchoPhysics, width: Int, height: Int) {
-        if (physics.state == GameState.MENU) {
+    private fun drawOverlays(canvas: Canvas, scene: EchoRunnerScene, physics: EchoPhysics, width: Int, height: Int) {
+        if (!scene.isGameStarted) {
             textPaint.textSize = 100f
             canvas.drawText("ECHO RUNNER", width / 2f, height / 2f - 50f, textPaint)
             textPaint.textSize = 40f
-            // Blink effect
             if ((System.currentTimeMillis() / 600) % 2 == 0L) {
                 canvas.drawText("HOLD BUTTON TO ENTER ECHO", width / 2f, height / 2f + 50f, textPaint)
             }
-        } else if (physics.state == GameState.PLAYING) {
+        }
+        else if (scene.isPaused) {
+            // Draw background game text lightly
             textPaint.textSize = 70f
             canvas.drawText(cachedScoreStr, width / 2f, 130f, textPaint)
-        } else if (physics.state == GameState.GAMEOVER) {
+
+            // Draw Overlay
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), pauseOverlayPaint)
+
+            val fgColor = if (physics.player.isEcho) EchoConfig.COLOR_ECHO_FG else EchoConfig.COLOR_REAL_FG
+            textPaint.color = fgColor
+
+            textPaint.textSize = 90f
+            canvas.drawText("PAUSED", width / 2f, height / 2f - 40f, textPaint)
+            textPaint.textSize = 40f
+            canvas.drawText("CENTER to Resume", width / 2f, height / 2f + 60f, textPaint)
+            canvas.drawText("BACK to Quit", width / 2f, height / 2f + 130f, textPaint)
+        }
+        else if (scene.isGameOver) {
             textPaint.textSize = 90f
             canvas.drawText("DIMENSION CRASH", width / 2f, height / 2f - 40f, textPaint)
             textPaint.textSize = 45f
             canvas.drawText("FINAL SCORE: $cachedScoreStr", width / 2f, height / 2f + 50f, textPaint)
 
-            if (physics.canRestart()) {
-                textPaint.textSize = 30f
-                if ((System.currentTimeMillis() / 400) % 2 == 0L) {
-                    canvas.drawText("RELEASE BUTTON TO RESET", width / 2f, height / 2f + 120f, textPaint)
-                }
+            textPaint.textSize = 30f
+            if ((System.currentTimeMillis() / 400) % 2 == 0L) {
+                canvas.drawText("RELEASE BUTTON TO RESET", width / 2f, height / 2f + 120f, textPaint)
             }
+        }
+        else {
+            // Playing
+            textPaint.textSize = 70f
+            canvas.drawText(cachedScoreStr, width / 2f, 130f, textPaint)
         }
     }
 }

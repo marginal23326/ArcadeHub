@@ -1,6 +1,10 @@
 package com.example.arcadehub.games.orbithop
 
-import android.graphics.*
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Typeface
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -78,9 +82,15 @@ class OrbitRenderer {
         typeface = Typeface.DEFAULT_BOLD
     }
 
+    private val pauseOverlayPaint = Paint().apply {
+        color = Color.BLACK
+        style = Paint.Style.FILL
+        alpha = 200
+    }
+
     private val path = Path()
 
-    fun draw(canvas: Canvas, physics: OrbitPhysics, width: Int, height: Int, bestScore: Int) {
+    fun draw(canvas: Canvas, physics: OrbitPhysics, width: Int, height: Int, bestScore: Int, isPaused: Boolean) {
         canvas.drawColor(OrbitConfig.BG_COLOR)
 
         val camY = physics.cameraY
@@ -94,19 +104,14 @@ class OrbitRenderer {
         val size = pivots.size
         for (i in 0 until size) {
             val p = pivots[i]
-
             val haloPaint = if (p.isTarget) pivotHaloTargetPaint else pivotHaloInactivePaint
             val corePaint = if (p.isTarget) pivotCoreTargetPaint else pivotCoreInactivePaint
-
-            // Halo
             canvas.drawCircle(p.x, p.y, OrbitConfig.CATCH_RADIUS, haloPaint)
-
-            // Core
             canvas.drawCircle(p.x, p.y, OrbitConfig.PIVOT_RADIUS, corePaint)
-
-            // Spin Indicator
             if (p.isTarget || physics.player.currentPivot == p) {
-                val angle = (System.currentTimeMillis() % 2000) / 2000f * 6.28f * p.dir
+                // If paused, stop the visual rotation calculation to look frozen
+                val time = if(isPaused) 0 else System.currentTimeMillis()
+                val angle = (time % 2000) / 2000f * 6.28f * p.dir
                 val offset = OrbitConfig.PIVOT_RADIUS - 8f
                 val dotX = p.x + offset * cos(angle).toFloat()
                 val dotY = p.y + offset * sin(angle).toFloat()
@@ -124,7 +129,6 @@ class OrbitRenderer {
             path.rewind()
             var idx = (physics.trailHead - physics.trailCount + OrbitConfig.TRAIL_LENGTH) % OrbitConfig.TRAIL_LENGTH
             path.moveTo(physics.trailX[idx], physics.trailY[idx])
-
             for (k in 1 until physics.trailCount) {
                 idx = (idx + 1) % OrbitConfig.TRAIL_LENGTH
                 path.lineTo(physics.trailX[idx], physics.trailY[idx])
@@ -147,12 +151,18 @@ class OrbitRenderer {
         if (physics.player.state == PlayerState.DEAD) {
             overlayTextPaint.textSize = 100f
             canvas.drawText("GAME OVER", width / 2f, height / 2f - 40f, overlayTextPaint)
-
             overlayTextPaint.textSize = 50f
             canvas.drawText("Score: ${physics.score}", width / 2f, height / 2f + 50f, overlayTextPaint)
-
             overlayTextPaint.textSize = 35f
             canvas.drawText("CENTER to Retry | BACK to Menu", width / 2f, height / 2f + 140f, overlayTextPaint)
+        }
+        else if (isPaused) {
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), pauseOverlayPaint)
+            overlayTextPaint.textSize = 100f
+            canvas.drawText("PAUSED", width / 2f, height / 2f - 40f, overlayTextPaint)
+            overlayTextPaint.textSize = 40f
+            canvas.drawText("CENTER to Resume", width / 2f, height / 2f + 60f, overlayTextPaint)
+            canvas.drawText("BACK to Quit", width / 2f, height / 2f + 130f, overlayTextPaint)
         }
     }
 
