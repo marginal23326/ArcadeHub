@@ -1,7 +1,5 @@
 package com.example.arcadehub.core
 
-import android.graphics.Color
-
 object Constants {
     const val LOGIC_WIDTH = 1920
     const val LOGIC_HEIGHT = 1080

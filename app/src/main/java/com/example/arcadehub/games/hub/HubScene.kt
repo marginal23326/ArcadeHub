@@ -1,14 +1,13 @@
 package com.example.arcadehub.games.hub
 
 import android.graphics.Canvas
-import com.example.arcadehub.core.Constants
 import com.example.arcadehub.core.InputAction
 import com.example.arcadehub.core.Scene
-import com.example.arcadehub.managers.SceneManager
-import com.example.arcadehub.managers.SoundManager
 import com.example.arcadehub.games.blockstack.BlockStackScene
 import com.example.arcadehub.games.echorunner.EchoRunnerScene
 import com.example.arcadehub.games.orbithop.OrbitHopScene
+import com.example.arcadehub.managers.SceneManager
+import com.example.arcadehub.managers.SoundManager
 import kotlin.system.exitProcess
 
 class HubScene : Scene {
@@ -22,7 +21,11 @@ class HubScene : Scene {
         "ORBIT HOP"
     )
 
-    private var selectedIndex = 0
+    companion object {
+        private var lastSelection = 0
+    }
+
+    private var selectedIndex = lastSelection
 
     override fun enter() {
         // Reset selection or play menu music here
@@ -62,6 +65,8 @@ class HubScene : Scene {
     }
 
     private fun launchGame(index: Int) {
+        lastSelection = index
+
         val nextScene = when (index) {
             0 -> BlockStackScene()
             1 -> EchoRunnerScene()
