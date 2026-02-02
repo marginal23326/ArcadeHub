@@ -19,8 +19,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         volumeControlStream = AudioManager.STREAM_MUSIC
+
+        // Initialize Managers
         SaveManager.init(this)
         SoundManager.init(this)
+        SceneManager.init(this)
 
         SceneManager.switchScene(HubScene())
 
