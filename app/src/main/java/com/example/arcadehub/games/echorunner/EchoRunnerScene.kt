@@ -1,32 +1,24 @@
 package com.example.arcadehub.games.echorunner
 
 import android.graphics.Canvas
+import com.example.arcadehub.core.BaseGameScene
 import com.example.arcadehub.core.Constants
 import com.example.arcadehub.core.InputAction
-import com.example.arcadehub.core.Scene
-import com.example.arcadehub.games.hub.HubScene
-import com.example.arcadehub.managers.SaveManager
-import com.example.arcadehub.managers.SceneManager
-import com.example.arcadehub.managers.SoundManager
 
-class EchoRunnerScene : Scene {
+class EchoRunnerScene : BaseGameScene() {
 
     private val physics = EchoPhysics()
     private val renderer = EchoRenderer()
 
-    private var bestScore = 0
-
-    var isGameStarted = false
-    var isGameOver = false
-    var isPaused = false
+    override val highScoreKey = "ECHO_HIGHSCORE"
     private var restartCooldown = 0f
 
-    override fun enter() {
+    override fun resetGame() {
         physics.reset()
-        bestScore = SaveManager.getInt("ECHO_HIGHSCORE", 0)
         isGameStarted = false
         isGameOver = false
         isPaused = false
+        score = 0 // Sync base score with physics
     }
 
     override fun update(dt: Float) {
@@ -35,14 +27,12 @@ class EchoRunnerScene : Scene {
         if (!isGameStarted) return
 
         physics.update(dt)
+        score = physics.score // Keep base score updated for UI
 
         if (physics.isDead && !isGameOver) {
             isGameOver = true
             restartCooldown = 1f
-            if (physics.score > bestScore) {
-                bestScore = physics.score
-                SaveManager.setInt("ECHO_HIGHSCORE", bestScore)
-            }
+            checkNewHighScore()
         }
 
         if (isGameOver && restartCooldown > 0f) {
@@ -51,57 +41,35 @@ class EchoRunnerScene : Scene {
     }
 
     override fun draw(canvas: Canvas) {
-        renderer.draw(canvas, this, physics, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, bestScore)
+        renderer.draw(canvas, this, physics, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, highScore)
     }
 
-    override fun onInput(action: InputAction, isDown: Boolean) {
-        if (isPaused) {
-            if (isDown && action == InputAction.SELECT) {
-                isPaused = false
-                SoundManager.playSelect()
-            } else if (isDown && action == InputAction.BACK) {
-                SceneManager.switchScene(HubScene())
-            }
+    // Override because EchoRunner has specific start logic (Echo mode on start)
+    override fun handleStartInput(action: InputAction) {
+        if (action == InputAction.BACK) {
+            quitToHub()
             return
         }
-
-        if (!isGameStarted) {
-            if (isDown && (action == InputAction.SELECT || action == InputAction.UP || action == InputAction.DOWN)) {
-                isGameStarted = true
-                // Ensure player starts in Echo mode if they held the button to start
-                physics.setInput(true)
-            } else if (isDown && action == InputAction.BACK) {
-                SceneManager.switchScene(HubScene())
-            }
-            return
-        }
-
-        if (isGameOver) {
-            // Only restart if cooldown is done AND button is released (to prevent accidental restarts)
-            if (!isDown && restartCooldown <= 0f && (action == InputAction.SELECT || action == InputAction.UP || action == InputAction.DOWN)) {
-                physics.reset()
-                isGameOver = false
-            } else if (isDown && action == InputAction.BACK) {
-                SceneManager.switchScene(HubScene())
-            }
-            return
-        }
-
-        when (action) {
-            InputAction.SELECT,
-            InputAction.UP,
-            InputAction.DOWN -> {
-                physics.setInput(isDown)
-            }
-            InputAction.BACK -> {
-                if (isDown) {
-                    isPaused = true
-                    SoundManager.playSelect()
-                }
-            }
-            else -> {}
+        if (action == InputAction.SELECT || action == InputAction.UP || action == InputAction.DOWN) {
+            isGameStarted = true
+            physics.setInput(true) // Start in Echo mode
         }
     }
 
-    override fun exit() {}
+    override fun handleGameInput(action: InputAction, isDown: Boolean) {
+        if (action == InputAction.SELECT || action == InputAction.UP || action == InputAction.DOWN) {
+            physics.setInput(isDown)
+        }
+    }
+
+    // Override because of the restart cooldown logic
+    override fun handleGameOverInput(action: InputAction) {
+        if (restartCooldown <= 0f && (action == InputAction.SELECT || action == InputAction.UP || action == InputAction.DOWN)) {
+            resetGame()
+            physics.reset()
+            isGameStarted = true // Immediately restart
+        } else if (action == InputAction.BACK) {
+            quitToHub()
+        }
+    }
 }
