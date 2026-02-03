@@ -1,8 +1,7 @@
 package com.example.arcadehub.games.blockstack
 
-import android.graphics.Color
-import com.example.arcadehub.managers.SaveManager
 import androidx.core.graphics.toColorInt
+import com.example.arcadehub.managers.SaveManager
 
 object BlockConfig {
     // --- DIMENSIONS (Based on 1920x1080 Logic) ---

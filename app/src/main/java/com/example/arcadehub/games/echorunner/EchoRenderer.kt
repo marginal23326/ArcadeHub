@@ -4,22 +4,21 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
-import com.example.arcadehub.core.Constants
-import java.util.*
+import com.example.arcadehub.core.GraphicsUtils
+import java.util.Locale
 import kotlin.math.abs
 
 class EchoRenderer {
 
-    private val fillBlack = Paint().apply { color = Color.BLACK; style = Paint.Style.FILL; isAntiAlias = true }
-    private val fillWhite = Paint().apply { color = Color.WHITE; style = Paint.Style.FILL; isAntiAlias = true }
-    private val strokeBlack = Paint().apply { color = Color.BLACK; style = Paint.Style.STROKE; strokeWidth = 5f; isAntiAlias = true }
-    private val strokeWhite = Paint().apply { color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 5f; isAntiAlias = true }
+    // Paint creation
+    private val fillBlack = GraphicsUtils.createPaint(Color.BLACK)
+    private val fillWhite = GraphicsUtils.createPaint(Color.WHITE)
+    private val strokeBlack = GraphicsUtils.createPaint(Color.BLACK, Paint.Style.STROKE, strokeWidth = 5f)
+    private val strokeWhite = GraphicsUtils.createPaint(Color.WHITE, Paint.Style.STROKE, strokeWidth = 5f)
 
-    private val textPaint = Paint().apply { typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER; isAntiAlias = true }
-    private val hudPaint = Paint().apply { textSize = 35f; typeface = Typeface.MONOSPACE; textAlign = Paint.Align.LEFT; isAntiAlias = true }
-    private val pauseOverlayPaint = Paint().apply { color = Color.BLACK; style = Paint.Style.FILL; alpha = 200 }
+    private val textPaint = GraphicsUtils.createPaint(Color.WHITE, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+    private val hudPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 35f, typeface = Typeface.MONOSPACE)
 
-    // Caching
     private var cachedScore = -1
     private var cachedScoreStr = "0"
     private var cachedSpeedLevel = -1f
@@ -32,24 +31,20 @@ class EchoRenderer {
 
         canvas.drawColor(if (isEcho) EchoConfig.COLOR_ECHO_BG else EchoConfig.COLOR_REAL_BG)
 
-        // Setup paints
         hudPaint.color = fgColor
         textPaint.color = fgColor
         val linePaint = if (isEcho) strokeWhite else strokeBlack
         val obsPaintSolid = if (isEcho) fillWhite else fillBlack
         val obsPaintGhost = if (isEcho) strokeWhite else strokeBlack
 
-        // 1. Floor/Ceiling Lines
         val midY = height / 2f
         canvas.drawLine(0f, midY - 250f, width.toFloat(), midY - 250f, linePaint)
         canvas.drawLine(0f, midY + 250f, width.toFloat(), midY + 250f, linePaint)
 
-        // 2. Obstacles
         val obstacles = physics.getActiveObstacles()
         for (obs in obstacles) {
             if (!obs.active) continue
             val isSolid = (obs.type == DimensionType.REAL && !isEcho) || (obs.type == DimensionType.ECHO && isEcho)
-
             if (isSolid) {
                 canvas.drawRect(obs.x, obs.y, obs.x + obs.w, obs.y + obs.h, obsPaintSolid)
             } else {
@@ -58,7 +53,6 @@ class EchoRenderer {
             }
         }
 
-        // 3. Particles
         var pCount = 0
         for (part in physics.particles) {
             if (!part.active) continue
@@ -70,20 +64,15 @@ class EchoRenderer {
             canvas.drawPoints(particlePoints, 0, pCount, obsPaintSolid)
         }
 
-        // 4. Player (Don't draw if game hasn't started yet)
         if (scene.isGameStarted && !scene.isGameOver) {
             val player = physics.player
             canvas.drawRect(player.drawX, player.y, player.drawX + player.size, player.y + player.size, obsPaintSolid)
         }
 
-        // 5. HUD
         updateStrings(physics.score, physics.getSpeed())
 
-        // Speed in Top Center
         hudPaint.textAlign = Paint.Align.CENTER
         canvas.drawText(cachedSpeedStr, width / 2f, 60f, hudPaint)
-
-        // Best Score in Top Right
         hudPaint.textAlign = Paint.Align.RIGHT
         canvas.drawText("BEST: $bestScore", width - 30f, 60f, hudPaint)
 
@@ -112,35 +101,18 @@ class EchoRenderer {
             }
         }
         else if (scene.isPaused) {
-            // Draw background game text lightly
-            textPaint.textSize = 70f
-            canvas.drawText(cachedScoreStr, width / 2f, 130f, textPaint)
-
-            // Draw Overlay
-            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), pauseOverlayPaint)
-
-            val fgColor = if (physics.player.isEcho) EchoConfig.COLOR_ECHO_FG else EchoConfig.COLOR_REAL_FG
-            textPaint.color = fgColor
-
-            textPaint.textSize = 90f
-            canvas.drawText("PAUSED", width / 2f, height / 2f - 40f, textPaint)
-            textPaint.textSize = 40f
-            canvas.drawText("CENTER to Resume", width / 2f, height / 2f + 60f, textPaint)
-            canvas.drawText("BACK to Quit", width / 2f, height / 2f + 130f, textPaint)
+            GraphicsUtils.drawPauseMenu(canvas, width, height, cachedScoreStr)
         }
         else if (scene.isGameOver) {
-            textPaint.textSize = 90f
-            canvas.drawText("DIMENSION CRASH", width / 2f, height / 2f - 40f, textPaint)
-            textPaint.textSize = 45f
-            canvas.drawText("FINAL SCORE: $cachedScoreStr", width / 2f, height / 2f + 50f, textPaint)
-
-            textPaint.textSize = 30f
-            if ((System.currentTimeMillis() / 400) % 2 == 0L) {
-                canvas.drawText("RELEASE BUTTON TO RESET", width / 2f, height / 2f + 120f, textPaint)
-            }
+            val sub = if ((System.currentTimeMillis() / 400) % 2 == 0L) "RELEASE BUTTON TO RESET" else null
+            GraphicsUtils.drawGameOverMenu(
+                canvas, width, height,
+                "DIMENSION CRASH",
+                "FINAL SCORE: $cachedScoreStr",
+                sub
+            )
         }
         else {
-            // Playing
             textPaint.textSize = 70f
             canvas.drawText(cachedScoreStr, width / 2f, 130f, textPaint)
         }

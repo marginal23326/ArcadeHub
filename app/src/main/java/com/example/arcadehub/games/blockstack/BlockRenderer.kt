@@ -1,7 +1,11 @@
 package com.example.arcadehub.games.blockstack
 
-import android.graphics.*
-import com.example.arcadehub.core.Constants
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
+import com.example.arcadehub.core.GraphicsUtils
 import kotlin.random.Random
 
 class BlockRenderer {
@@ -16,19 +20,23 @@ class BlockRenderer {
     private val arcRect = RectF()
     private val modeBtnRect = RectF()
 
-    private val abilityBoxPaint = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 3f; isAntiAlias = true }
-    private val blockPaint = Paint().apply { style = Paint.Style.FILL; isAntiAlias = true }
-    private val titlePaint = Paint().apply { color = Color.WHITE; textSize = 80f; textAlign = Paint.Align.CENTER; isAntiAlias = true; typeface = Typeface.DEFAULT_BOLD }
-    private val scorePaint = Paint().apply { color = Color.WHITE; textSize = 100f; isAntiAlias = true; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER }
-    private val bestScorePaint = Paint().apply { color = Color.LTGRAY; textSize = 40f; isAntiAlias = true; textAlign = Paint.Align.CENTER }
-    private val feedbackPaint = Paint().apply { isAntiAlias = true; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER }
-    private val shopTextPaint = Paint().apply { color = Color.WHITE; textSize = 30f; textAlign = Paint.Align.CENTER; isAntiAlias = true }
-    private val hudTextPaint = Paint().apply { color = Color.WHITE; textSize = 30f; textAlign = Paint.Align.LEFT; isAntiAlias = true; typeface = Typeface.DEFAULT_BOLD }
-    private val hudCoinPaint = Paint().apply { color = BlockConfig.COLOR_COIN; textSize = 35f; textAlign = Paint.Align.RIGHT; isAntiAlias = true; typeface = Typeface.MONOSPACE }
-    private val selectionPaint = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 8f; color = BlockConfig.SELECTION_COLOR; isAntiAlias = true }
-    private val shopBoxPaint = Paint().apply { style = Paint.Style.FILL; color = BlockConfig.SHOP_BG_COLOR; isAntiAlias = true }
-    private val overlayPaint = Paint().apply { style = Paint.Style.FILL; color = Color.BLACK; alpha = 180 }
-    private val pauseOverlayPaint = Paint().apply { style = Paint.Style.FILL; color = Color.BLACK; alpha = 200 }
+    private val abilityBoxPaint = GraphicsUtils.createPaint(Color.WHITE, Paint.Style.STROKE, strokeWidth = 3f)
+    private val blockPaint = GraphicsUtils.createPaint(Color.WHITE, Paint.Style.FILL)
+
+    private val titlePaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 80f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+    private val scorePaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 100f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+    private val bestScorePaint = GraphicsUtils.createPaint(Color.LTGRAY, textSize = 40f, align = Paint.Align.CENTER)
+
+    private val feedbackPaint = GraphicsUtils.createPaint(Color.WHITE, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+
+    private val shopTextPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 30f, align = Paint.Align.CENTER)
+    private val hudTextPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 30f, align = Paint.Align.LEFT, typeface = Typeface.DEFAULT_BOLD)
+    private val hudCoinPaint = GraphicsUtils.createPaint(BlockConfig.COLOR_COIN, textSize = 35f, align = Paint.Align.RIGHT, typeface = Typeface.MONOSPACE)
+
+    private val selectionPaint = GraphicsUtils.createPaint(BlockConfig.SELECTION_COLOR, Paint.Style.STROKE, strokeWidth = 8f)
+    private val shopBoxPaint = GraphicsUtils.createPaint(BlockConfig.SHOP_BG_COLOR, Paint.Style.FILL)
+
+    private val overlayPaint = GraphicsUtils.createPaint(Color.BLACK, alpha = 180)
 
     private var lastRenderedScore = -1
     private var scoreString = "0"
@@ -50,10 +58,11 @@ class BlockRenderer {
             } else {
                 drawRadialWorld(canvas, scene, physics as RadialPhysics, screenWidth, screenHeight)
             }
+
             drawHUD(canvas, scene, screenWidth)
 
             if (scene.isPaused) {
-                drawPauseScreen(canvas, screenWidth, screenHeight)
+                GraphicsUtils.drawPauseMenu(canvas, screenWidth, screenHeight)
             }
 
             if (scene.isGameOver) {
@@ -62,25 +71,11 @@ class BlockRenderer {
         }
     }
 
-    private fun drawPauseScreen(canvas: Canvas, w: Int, h: Int) {
-        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), pauseOverlayPaint)
-
-        val cx = w / 2f
-        val cy = h / 2f
-
-        titlePaint.textSize = 100f
-        canvas.drawText("PAUSED", cx, cy - 50f, titlePaint)
-
-        shopTextPaint.textSize = 40f
-        shopTextPaint.color = Color.WHITE
-        canvas.drawText("CENTER to Resume", cx, cy + 50f, shopTextPaint)
-        canvas.drawText("BACK to Quit", cx, cy + 120f, shopTextPaint)
-    }
-
     private fun drawStartScreen(canvas: Canvas, scene: BlockStackScene, w: Int, h: Int) {
         val cx = w / 2f
         val cy = h / 2f
 
+        titlePaint.textSize = 80f
         canvas.drawText("BLOCK STACK", cx, 120f, titlePaint)
 
         bestScorePaint.textAlign = Paint.Align.RIGHT
@@ -339,7 +334,7 @@ class BlockRenderer {
         val isOrbit = scene.gameMode == GameMode.ORBIT
 
         if (scene.isZoomedOut) {
-            canvas.drawRect(0f, h - 150f, w.toFloat(), h.toFloat(), overlayPaint)
+            GraphicsUtils.drawOverlay(canvas, w, h)
             shopTextPaint.textSize = 35f; shopTextPaint.color = Color.WHITE
             canvas.drawText("▼ Reset Zoom | CENTER Retry | BACK Menu", cx, h - 60f, shopTextPaint)
             return
@@ -362,6 +357,7 @@ class BlockRenderer {
         if (timeSinceDeath > BlockConfig.GAME_OVER_COOLDOWN_MS) {
             val footerH = 120f
             canvas.drawRect(0f, h - footerH - 40f, w.toFloat(), h.toFloat(), overlayPaint)
+
             shopTextPaint.textSize = 35f; shopTextPaint.color = Color.WHITE
             val viewText = if(isOrbit) "▼ Zoom Out" else "▼ View Tower"
             canvas.drawText("$viewText | CENTER Retry | BACK Menu", cx, h - 80f, shopTextPaint)

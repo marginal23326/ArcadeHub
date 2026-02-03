@@ -3,7 +3,6 @@ package com.example.arcadehub.managers
 import android.content.Context
 import android.content.res.Resources
 import android.graphics.Canvas
-import com.example.arcadehub.core.Constants
 import com.example.arcadehub.core.InputAction
 import com.example.arcadehub.core.Scene
 

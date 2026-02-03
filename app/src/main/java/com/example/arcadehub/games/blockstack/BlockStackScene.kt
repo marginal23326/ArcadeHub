@@ -5,12 +5,11 @@ import android.graphics.Color
 import com.example.arcadehub.core.Constants
 import com.example.arcadehub.core.InputAction
 import com.example.arcadehub.core.Scene
+import com.example.arcadehub.games.hub.HubScene
 import com.example.arcadehub.managers.SaveManager
 import com.example.arcadehub.managers.SceneManager
 import com.example.arcadehub.managers.SoundManager
-import com.example.arcadehub.games.hub.HubScene
 import java.util.concurrent.ConcurrentLinkedQueue
-import kotlin.math.abs
 
 class BlockStackScene : Scene {
 

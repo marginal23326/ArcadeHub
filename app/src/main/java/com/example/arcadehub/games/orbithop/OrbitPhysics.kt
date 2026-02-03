@@ -1,7 +1,10 @@
 package com.example.arcadehub.games.orbithop
 
 import com.example.arcadehub.managers.SoundManager
-import kotlin.math.*
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.random.Random
 
 class OrbitPhysics {
