@@ -10,12 +10,11 @@ object SoundManager {
     private lateinit var soundPool: SoundPool
     private var soundsLoaded = false
 
-    // Sound IDs
     var sfxPlace = 0
     var sfxPerfect = 0
     var sfxSelect = 0
     var sfxError = 0
-    var sfxLaunch = 0
+    var sfxSwoosh = 0
     var sfxAttach = 0
 
     private val sfxGameOverList = mutableListOf<Int>()
@@ -31,19 +30,17 @@ object SoundManager {
             .setAudioAttributes(audioAttributes)
             .build()
 
-        // Load sounds
-        sfxPlace = soundPool.load(context, R.raw.place, 1)
-        sfxPerfect = soundPool.load(context, R.raw.perfect, 1)
-        sfxSelect = soundPool.load(context, R.raw.select, 1)
-        sfxError = soundPool.load(context, R.raw.error, 1)
-        sfxLaunch = soundPool.load(context, R.raw.launch, 1)
-        sfxAttach = soundPool.load(context, R.raw.attach, 1)
+        fun load(resId: Int) = soundPool.load(context, resId, 1)
 
-        // Load game over sounds
-        sfxGameOverList.add(soundPool.load(context, R.raw.gameover1, 1))
-        sfxGameOverList.add(soundPool.load(context, R.raw.gameover2, 1))
-        sfxGameOverList.add(soundPool.load(context, R.raw.gameover3, 1))
-        sfxGameOverList.add(soundPool.load(context, R.raw.gameover4, 1))
+        sfxPlace = load(R.raw.place)
+        sfxPerfect = load(R.raw.perfect)
+        sfxSelect = load(R.raw.select)
+        sfxError = load(R.raw.error)
+        sfxSwoosh = load(R.raw.swoosh)
+        sfxAttach = load(R.raw.attach)
+
+        listOf(R.raw.gameover1, R.raw.gameover2, R.raw.gameover3, R.raw.gameover4)
+            .forEach { sfxGameOverList.add(load(it)) }
 
         soundPool.setOnLoadCompleteListener { _, _, status ->
             if (status == 0) soundsLoaded = true
@@ -55,14 +52,11 @@ object SoundManager {
         soundPool.play(soundId, volume, volume, 1, 0, pitch)
     }
 
-    fun playSelect() {
-        playSound(sfxSelect)
-    }
+    fun playSelect() = playSound(sfxSelect)
 
     fun playGameOver() {
         if (!soundsLoaded || sfxGameOverList.isEmpty()) return
-        val randomIndex = Random.nextInt(sfxGameOverList.size)
-        playSound(sfxGameOverList[randomIndex])
+        playSound(sfxGameOverList.random())
     }
 
     fun playPerfect(streak: Int) {
@@ -71,23 +65,16 @@ object SoundManager {
     }
 
     fun playPlaceVariation() {
-        val pitch = 0.95f + Random.nextFloat() * 0.1f
-        playSound(sfxPlace, pitch)
+        playSound(sfxPlace, 0.95f + Random.nextFloat() * 0.1f)
     }
 
-    // --- NEW HELPERS ---
-
-    fun playLaunch() {
-        val pitch = 1.0f + (Random.nextFloat() * 0.2f - 0.1f)
-        playSound(sfxLaunch, pitch, 0.8f)
+    fun playSwoosh() {
+        playSound(sfxSwoosh, 1.0f + (Random.nextFloat() * 0.2f - 0.1f), 0.8f)
     }
 
     fun playAttach(score: Int) {
-        val pitch = 1.0f + ((score % 5) * 0.05f)
-        playSound(sfxAttach, pitch, 1.0f)
+        playSound(sfxAttach, 1.0f + ((score % 5) * 0.05f))
     }
 
-    fun cleanup() {
-        soundPool.release()
-    }
+    fun cleanup() = soundPool.release()
 }

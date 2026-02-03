@@ -76,7 +76,7 @@ class OrbitHopScene : Scene {
                     SoundManager.playSelect()
                 } else {
                     if (physics.tapAction()) {
-                        SoundManager.playLaunch()
+                        SoundManager.playSwoosh()
                     }
                 }
             }

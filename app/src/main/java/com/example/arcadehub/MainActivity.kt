@@ -60,22 +60,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (event?.repeatCount != 0) return super.onKeyDown(keyCode, event)
-        val action = mapKeyCode(keyCode)
-        if (action != null) {
-            SceneManager.onInput(action, true) // isDown = true
+    private fun handleKeyEvent(keyCode: Int, event: KeyEvent?, isDown: Boolean): Boolean {
+        if (isDown && event?.repeatCount != 0) return super.onKeyDown(keyCode, event)
+
+        mapKeyCode(keyCode)?.let { action ->
+            SceneManager.onInput(action, isDown)
             return true
         }
-        return super.onKeyDown(keyCode, event)
+        return if (isDown) super.onKeyDown(keyCode, event) else super.onKeyUp(keyCode, event)
     }
 
-    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        val action = mapKeyCode(keyCode)
-        if (action != null) {
-            SceneManager.onInput(action, false) // isDown = false
-            return true
-        }
-        return super.onKeyUp(keyCode, event)
-    }
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean = handleKeyEvent(keyCode, event, true)
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean = handleKeyEvent(keyCode, event, false)
 }

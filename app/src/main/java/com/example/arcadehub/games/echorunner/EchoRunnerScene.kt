@@ -70,7 +70,6 @@ class EchoRunnerScene : Scene {
                 isGameStarted = true
                 // Ensure player starts in Echo mode if they held the button to start
                 physics.setInput(true)
-                SoundManager.playLaunch()
             } else if (isDown && action == InputAction.BACK) {
                 SceneManager.switchScene(HubScene())
             }
