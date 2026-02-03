@@ -11,11 +11,14 @@ import com.example.arcadehub.managers.SceneManager
 import com.example.arcadehub.managers.SoundManager
 import kotlin.system.exitProcess
 
+object HubConfig {
+    const val COLUMNS = 5
+}
+
 data class HubGameData(val title: String, val resId: Int)
 
 class HubScene : Scene {
     private val renderer = HubRenderer()
-    private val columns = 5 // Must match renderer
 
     private val gameList = listOf(
         HubGameData("BLOCK STACK", R.drawable.menu_blockstack),
@@ -33,8 +36,9 @@ class HubScene : Scene {
     override fun onInput(action: InputAction, isDown: Boolean) {
         if (!isDown) return
 
-        val row = selectedIndex / columns
-        val col = selectedIndex % columns
+        val cols = HubConfig.COLUMNS
+        val row = selectedIndex / cols
+        val col = selectedIndex % cols
 
         when (action) {
             InputAction.LEFT -> {
@@ -51,13 +55,13 @@ class HubScene : Scene {
             }
             InputAction.UP -> {
                 if (row > 0) {
-                    selectedIndex -= columns
+                    selectedIndex -= cols
                     SoundManager.playSelect()
                 }
             }
             InputAction.DOWN -> {
-                if (selectedIndex + columns < gameList.size) {
-                    selectedIndex += columns
+                if (selectedIndex + cols < gameList.size) {
+                    selectedIndex += cols
                     SoundManager.playSelect()
                 }
             }

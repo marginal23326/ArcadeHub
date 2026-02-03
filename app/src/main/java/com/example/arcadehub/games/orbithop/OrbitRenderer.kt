@@ -23,7 +23,7 @@ class OrbitRenderer {
         strokeJoin = Paint.Join.ROUND
     }
 
-    private val trajectoryPaint = GraphicsUtils.createPaint(0xFF888888.toInt(), Paint.Style.STROKE, strokeWidth = 3f)
+    private val trajectoryPaint = GraphicsUtils.createPaint(OrbitConfig.COLOR_TRAJECTORY, Paint.Style.STROKE, strokeWidth = 3f)
 
     private val scorePaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 80f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
     private val bestScorePaint = GraphicsUtils.createPaint(OrbitConfig.COLOR_BEST_SCORE, textSize = 40f, align = Paint.Align.RIGHT, typeface = Typeface.MONOSPACE)

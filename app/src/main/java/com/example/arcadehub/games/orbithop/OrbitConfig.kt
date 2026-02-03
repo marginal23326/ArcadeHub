@@ -33,6 +33,8 @@ object OrbitConfig {
     const val COLOR_PIVOT_HALO_INACTIVE = 0xFF2A2A2A.toInt()
     const val COLOR_PIVOT_HALO_TARGET = 0xFF004455.toInt()
 
+    const val COLOR_TRAJECTORY = 0xFF888888.toInt()
+
     const val COLOR_TRAIL = 0xFF00D2FF.toInt()
     const val COLOR_BEST_SCORE = 0xFFFFD700.toInt()
 }

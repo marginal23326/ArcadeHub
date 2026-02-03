@@ -8,8 +8,8 @@ import androidx.core.graphics.createBitmap
 
 class HubRenderer {
 
-    // Grid Settings
-    private val columns = 5
+    private val columns = HubConfig.COLUMNS
+
     private val iconSize = 300f
     private val horizontalGap = 60f
     private val verticalGap = 120f // Extra space for text below icon

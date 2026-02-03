@@ -15,6 +15,12 @@ object EchoConfig {
 
     const val PLAYER_SIZE = 80f
 
+    // --- OBSTACLES ---
+    const val OBSTACLE_WIDTH = 90f
+    const val OBSTACLE_HEIGHT_MIN = 120f
+    const val OBSTACLE_HEIGHT_VAR = 180f
+    const val OBSTACLE_Y_JITTER = 150f
+
     const val COLOR_REAL_BG = Color.WHITE
     const val COLOR_REAL_FG = Color.BLACK
     const val COLOR_ECHO_BG = Color.BLACK

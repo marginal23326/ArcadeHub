@@ -7,11 +7,11 @@ enum class GameMode(val displayName: String) {
     ORBIT("Orbit")
 }
 
-enum class AbilityType(val displayName: String, val cost: Int, val maxStock: Int) {
-    SLO_MO("Slo-Mo", 50, 10),
-    MAGNET("Magnet", 75, 10),
-    WIDENER("Widen", 150, 5),
-    SECOND_CHANCE("Revive", 100, 1)
+enum class AbilityType(val displayName: String, val cost: Int, val maxStock: Int, val symbol: String) {
+    SLO_MO("Slo-Mo", 50, 10, "<<"),
+    MAGNET("Magnet", 75, 10, "U"),
+    WIDENER("Widen", 150, 5, "<->"),
+    SECOND_CHANCE("Revive", 100, 1, "♥")
 }
 
 enum class PlacementType { PERFECT, NORMAL, MISS }

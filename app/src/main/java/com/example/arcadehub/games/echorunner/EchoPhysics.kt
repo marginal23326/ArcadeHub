@@ -121,12 +121,12 @@ class EchoPhysics {
         obs.active = true
         obs.passed = false
         obs.type = if (Random.nextBoolean()) DimensionType.REAL else DimensionType.ECHO
-        obs.w = 90f
-        obs.h = Random.nextFloat() * 180f + 120f
+        obs.w = EchoConfig.OBSTACLE_WIDTH
+        obs.h = Random.nextFloat() * EchoConfig.OBSTACLE_HEIGHT_VAR + EchoConfig.OBSTACLE_HEIGHT_MIN
         obs.x = worldWidth.toFloat()
         obs.y = (worldHeight / 2f) - (obs.h / 2f)
         if (speed > 1500f) {
-            obs.y += (Random.nextFloat() - 0.5f) * 150f
+            obs.y += (Random.nextFloat() - 0.5f) * EchoConfig.OBSTACLE_Y_JITTER
         }
     }
 

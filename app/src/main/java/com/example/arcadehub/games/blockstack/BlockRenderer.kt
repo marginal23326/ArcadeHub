@@ -116,14 +116,7 @@ class BlockRenderer {
             canvas.drawText(item.displayName, x + itemSize / 2, startY + 50f, shopTextPaint)
 
             shopTextPaint.textSize = 50f
-            val symbol = when (item) {
-                AbilityType.SLO_MO -> "<<"
-                AbilityType.MAGNET -> "U"
-                AbilityType.WIDENER -> "<->"
-                AbilityType.SECOND_CHANCE -> "♥"
-            }
-            canvas.drawText(symbol, x + itemSize / 2, startY + 100f, shopTextPaint)
-
+            canvas.drawText(item.symbol, x + itemSize / 2, startY + 100f, shopTextPaint)
             shopTextPaint.textSize = 25f
             shopTextPaint.color = if (BlockEconomy.getCoins() >= item.cost) Color.YELLOW else Color.GRAY
             canvas.drawText(shopCostStrings[item] ?: "", x + itemSize / 2, startY + 140f, shopTextPaint)

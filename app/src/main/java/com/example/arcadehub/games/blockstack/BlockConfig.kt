@@ -67,6 +67,8 @@ object BlockEconomy {
     private const val PREF_COINS = "BS_COINS"
     private const val PREF_PREFIX_INV = "BS_INV_"
 
+    private fun getInvKey(type: AbilityType) = "$PREF_PREFIX_INV${type.name}"
+
     fun getCoins(): Int = SaveManager.getInt(PREF_COINS, 0)
 
     fun addCoins(amount: Int) {
@@ -75,7 +77,7 @@ object BlockEconomy {
     }
 
     fun getInventoryCount(type: AbilityType): Int {
-        return SaveManager.getInt(PREF_PREFIX_INV + type.name, 0)
+        return SaveManager.getInt(getInvKey(type), 0)
     }
 
     fun buyItem(type: AbilityType): Boolean {
@@ -84,7 +86,7 @@ object BlockEconomy {
 
         if (coins >= type.cost && stock < type.maxStock) {
             SaveManager.setInt(PREF_COINS, coins - type.cost)
-            SaveManager.setInt(PREF_PREFIX_INV + type.name, stock + 1)
+            SaveManager.setInt(getInvKey(type), stock + 1)
             return true
         }
         return false
@@ -93,7 +95,7 @@ object BlockEconomy {
     fun useItem(type: AbilityType): Boolean {
         val stock = getInventoryCount(type)
         if (stock > 0) {
-            SaveManager.setInt(PREF_PREFIX_INV + type.name, stock - 1)
+            SaveManager.setInt(getInvKey(type), stock - 1)
             return true
         }
         return false

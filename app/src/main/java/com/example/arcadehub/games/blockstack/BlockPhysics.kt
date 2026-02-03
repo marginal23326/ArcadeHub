@@ -24,32 +24,8 @@ class CameraSystem {
     }
 
     fun update(dtScale: Float) {
-        val diffY = targetCameraOffsetY - cameraOffsetY
-        if (abs(diffY) > 1f) {
-            var step = diffY * 0.05f * dtScale
-
-            val maxCamSpeed = 25f * dtScale
-            step = step.coerceIn(-maxCamSpeed, maxCamSpeed)
-
-            val minCamSpeed = 4f * dtScale
-            if (abs(step) < minCamSpeed) step = if (diffY > 0) minCamSpeed else -minCamSpeed
-
-            if (abs(step) > abs(diffY)) cameraOffsetY = targetCameraOffsetY
-            else cameraOffsetY += step
-        } else {
-            cameraOffsetY = targetCameraOffsetY
-        }
-
-        val diffX = targetCameraOffsetX - cameraOffsetX
-        if (abs(diffX) > 1f) {
-            var step = diffX * 0.05f * dtScale
-            val maxCamSpeed = 25f * dtScale
-            step = step.coerceIn(-maxCamSpeed, maxCamSpeed)
-            if (abs(step) > abs(diffX)) cameraOffsetX = targetCameraOffsetX
-            else cameraOffsetX += step
-        } else {
-            cameraOffsetX = targetCameraOffsetX
-        }
+        cameraOffsetY = smoothApproach(cameraOffsetY, targetCameraOffsetY, dtScale)
+        cameraOffsetX = smoothApproach(cameraOffsetX, targetCameraOffsetX, dtScale)
 
         val diffScale = targetScale - currentScale
         if (abs(diffScale) > 0.001f) {
@@ -57,6 +33,24 @@ class CameraSystem {
         } else {
             currentScale = targetScale
         }
+    }
+
+    private fun smoothApproach(current: Float, target: Float, dtScale: Float): Float {
+        val diff = target - current
+        if (abs(diff) <= 1f) return target
+
+        var step = diff * 0.05f * dtScale
+        val maxCamSpeed = 25f * dtScale
+        val minCamSpeed = 4f * dtScale
+
+        step = step.coerceIn(-maxCamSpeed, maxCamSpeed)
+
+        // Ensure minimum movement if not reached to prevent infinite small approach
+        if (abs(step) < minCamSpeed) {
+            step = if (diff > 0) minCamSpeed else -minCamSpeed
+        }
+
+        return if (abs(step) > abs(diff)) target else current + step
     }
 }
 
