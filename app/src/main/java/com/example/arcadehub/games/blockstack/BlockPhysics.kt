@@ -1,7 +1,10 @@
 package com.example.arcadehub.games.blockstack
 
-import com.example.arcadehub.core.Constants
-import kotlin.math.*
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sin
 import kotlin.random.Random
 
 class CameraSystem {
@@ -75,18 +78,48 @@ interface PhysicsStrategy {
     fun triggerWidener(screenWidth: Int): Boolean
 }
 
+abstract class BaseBlockPhysics : PhysicsStrategy {
+    override val debrisList = ArrayList<Debris>()
+    var currentSpeed = BlockConfig.BASE_SPEED
+
+    override fun update(screenWidth: Int, screenHeight: Int, dtScale: Float) {
+        // 1. Run specific block logic
+        onUpdatePhysics(screenWidth, screenHeight, dtScale)
+
+        // 2. Debris Logic
+        for (i in debrisList.size - 1 downTo 0) {
+            val d = debrisList[i]
+            d.vy += BlockConfig.GRAVITY * dtScale
+            d.x += d.vx * dtScale
+            d.y += d.vy * dtScale
+            d.rotation += d.rotSpeed * dtScale
+
+            if (d.y > 3000f || d.y > screenHeight + 500f) {
+                debrisList.removeAt(i)
+            }
+        }
+    }
+
+    override fun updateSpeed(score: Int, activeSloMoTurns: Int) {
+        val speedMultiplier = min(score, BlockConfig.MAX_SPEED_SCORE)
+        var spd = BlockConfig.BASE_SPEED + (speedMultiplier * BlockConfig.SPEED_INCREMENT)
+        if (activeSloMoTurns > 0) spd *= BlockConfig.SLOMO_FACTOR
+        currentSpeed = spd
+    }
+
+    abstract fun onUpdatePhysics(screenWidth: Int, screenHeight: Int, dtScale: Float)
+}
+
 // --- LINEAR PHYSICS (Classic) ---
-class LinearPhysics : PhysicsStrategy {
+class LinearPhysics : BaseBlockPhysics() {
     var currentBlockX = 0f
     var currentBlockWidth = 0f
-    var currentBlockSpeed = BlockConfig.BASE_SPEED
     var movingRight = true
     var stackY = 0f
     var previousBlockX = 0f
     var previousBlockWidth = 0f
 
     val stackList = ArrayList<Block>()
-    override val debrisList = ArrayList<Debris>()
 
     override fun reset(screenWidth: Int, screenHeight: Int) {
         stackList.clear()
@@ -98,8 +131,8 @@ class LinearPhysics : PhysicsStrategy {
         spawnNewBlock(screenWidth, 0, 0)
     }
 
-    override fun update(screenWidth: Int, screenHeight: Int, dtScale: Float) {
-        val step = currentBlockSpeed * dtScale
+    override fun onUpdatePhysics(screenWidth: Int, screenHeight: Int, dtScale: Float) {
+        val step = currentSpeed * dtScale
         if (movingRight) {
             currentBlockX += step
             if (currentBlockX + currentBlockWidth >= screenWidth) {
@@ -111,17 +144,6 @@ class LinearPhysics : PhysicsStrategy {
             if (currentBlockX <= 0) {
                 currentBlockX = 0f
                 movingRight = true
-            }
-        }
-
-        for (i in debrisList.size - 1 downTo 0) {
-            val d = debrisList[i]
-            d.vy += BlockConfig.GRAVITY * dtScale
-            d.x += d.vx * dtScale
-            d.y += d.vy * dtScale
-            d.rotation += d.rotSpeed * dtScale
-            if (d.y > screenHeight) {
-                debrisList.removeAt(i)
             }
         }
     }
@@ -177,13 +199,6 @@ class LinearPhysics : PhysicsStrategy {
         updateSpeed(score, activeSloMoTurns)
     }
 
-    override fun updateSpeed(score: Int, activeSloMoTurns: Int) {
-        val speedMultiplier = min(score, BlockConfig.MAX_SPEED_SCORE)
-        var spd = BlockConfig.BASE_SPEED + (speedMultiplier * BlockConfig.SPEED_INCREMENT)
-        if (activeSloMoTurns > 0) spd *= BlockConfig.SLOMO_FACTOR
-        currentBlockSpeed = spd
-    }
-
     override fun getCameraTargetX(): Float = 0f
     override fun getCameraTargetY(): Float {
         return if (stackList.size > 5) (stackList.size - 5) * BlockConfig.BLOCK_HEIGHT else 0f
@@ -201,7 +216,6 @@ class LinearPhysics : PhysicsStrategy {
         return 1f
     }
 
-
     override fun applyRevive(screenWidth: Int) { currentBlockX = (screenWidth - currentBlockWidth) / 2 }
     override fun triggerWidener(screenWidth: Int): Boolean {
         if (currentBlockWidth >= screenWidth/2f - 1f) return false
@@ -211,17 +225,15 @@ class LinearPhysics : PhysicsStrategy {
 }
 
 // --- RADIAL PHYSICS (Orbit) ---
-class RadialPhysics : PhysicsStrategy {
+class RadialPhysics : BaseBlockPhysics() {
     var currentAngle = 0f
     var currentSweep = BlockConfig.INITIAL_ARC_LENGTH
     var currentRadius = BlockConfig.INITIAL_RADIUS
-    var currentSpeed = BlockConfig.BASE_SPEED
     var spinClockwise = true
     var prevAngle = 0f
     var prevSweep = BlockConfig.INITIAL_ARC_LENGTH
 
     val stackList = ArrayList<ArcBlock>()
-    override val debrisList = ArrayList<Debris>()
 
     override fun reset(screenWidth: Int, screenHeight: Int) {
         stackList.clear()
@@ -233,28 +245,16 @@ class RadialPhysics : PhysicsStrategy {
         spawnNewBlock(screenWidth, 0, 0)
     }
 
-    override fun update(screenWidth: Int, screenHeight: Int, dtScale: Float) {
+    override fun onUpdatePhysics(screenWidth: Int, screenHeight: Int, dtScale: Float) {
         val step = currentSpeed * 1f * dtScale * 0.1f
         if (spinClockwise) currentAngle = (currentAngle + step) % 360f
         else {
             currentAngle = (currentAngle - step)
             if (currentAngle < 0) currentAngle += 360f
         }
-
-        for (i in debrisList.size - 1 downTo 0) {
-            val d = debrisList[i]
-            d.vy += BlockConfig.GRAVITY * dtScale
-            d.x += d.vx * dtScale
-            d.y += d.vy * dtScale
-            d.rotation += d.rotSpeed * dtScale
-            if (d.y > 3000f) {
-                debrisList.removeAt(i)
-            }
-        }
     }
 
     override fun calculatePlacement(score: Int, isMagnetActive: Boolean, isWidenerActive: Boolean): PlacementResult {
-        // Logic remains the same (Truncated for brevity, assume standard radial placement)
         val targetStart = prevAngle - (prevSweep / 2f)
         val currentStartAbs = currentAngle - (currentSweep / 2f)
         fun getRelativeAngle(angle: Float, reference: Float): Float {
@@ -308,13 +308,6 @@ class RadialPhysics : PhysicsStrategy {
         spinClockwise = Random.nextBoolean()
         currentAngle = (prevAngle + 180) % 360f
         updateSpeed(score, activeSloMoTurns)
-    }
-
-    override fun updateSpeed(score: Int, activeSloMoTurns: Int) {
-        val speedMultiplier = min(score, BlockConfig.MAX_SPEED_SCORE)
-        var spd = BlockConfig.BASE_SPEED + (speedMultiplier * BlockConfig.SPEED_INCREMENT)
-        if (activeSloMoTurns > 0) spd *= BlockConfig.SLOMO_FACTOR
-        currentSpeed = spd
     }
 
     override fun getCameraTargetX(): Float {
