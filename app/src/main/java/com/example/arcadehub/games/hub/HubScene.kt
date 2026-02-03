@@ -33,7 +33,9 @@ class HubScene : Scene {
     companion object { private var lastSelection = 0 }
     private var selectedIndex = lastSelection
 
-    override fun enter() { }
+    override fun enter() {
+        renderer.preloadBitmaps(gameList)
+    }
     override fun update(dt: Float) = renderer.updateAnim(dt)
     override fun draw(canvas: Canvas) = renderer.draw(canvas, gameList, selectedIndex)
 
