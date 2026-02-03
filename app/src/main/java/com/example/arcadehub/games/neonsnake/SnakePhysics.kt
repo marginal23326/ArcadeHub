@@ -9,13 +9,13 @@ class SnakePhysics {
 
     lateinit var player: SnakeEntity
     lateinit var ai: SnakeEntity
-    var food = Point(15, 10)
+    var food = Point(15, 9)
 
     private var moveTimer = 0f
     var isGameOver = false
     var gameOverReason = ""
 
-    // Input Buffer
+    // Input Buffer for snappy controls
     private val inputQueue = ArrayDeque<GridDir>()
 
     // Reusable structures
@@ -27,14 +27,14 @@ class SnakePhysics {
         moveTimer = 0f
         inputQueue.clear()
 
-        // P1 starts Bottom Left (32x18 coords)
+        // P1 starts Bottom Left
         player = SnakeEntity(
             body = arrayListOf(Point(5, 14), Point(5, 15), Point(5, 16)),
             dir = GridDir.UP,
             nextDir = GridDir.UP
         )
 
-        // AI starts Top Right (32x18 coords)
+        // AI starts Top Right
         ai = SnakeEntity(
             body = arrayListOf(Point(26, 3), Point(26, 2), Point(26, 1)),
             dir = GridDir.DOWN,
@@ -44,26 +44,16 @@ class SnakePhysics {
         spawnFood()
     }
 
-    /**
-     * Handles buffering inputs to ensure quick sequences (e.g. Left -> Down)
-     * are executed sequentially over ticks rather than overwriting each other.
-     */
+    // Called from Scene to buffer inputs
     fun processInput(newDir: GridDir) {
-        // The reference direction is the last one in the queue,
-        // or the snake's currently executing direction if queue is empty.
         val lastPlannedDir = if (inputQueue.isNotEmpty()) inputQueue.last() else player.nextDir
 
-        // 1. Prevent 180-degree turns (Moving opposite to current path)
+        // Prevent 180s and duplicates
         val isOpposite = (lastPlannedDir.x + newDir.x == 0) && (lastPlannedDir.y + newDir.y == 0)
-
-        // 2. Prevent spamming the same direction
         val isSame = lastPlannedDir == newDir
 
         if (!isOpposite && !isSame) {
-            // Limit buffer to 2 inputs to prevent uncontrolled "runaway" input lag
-            if (inputQueue.size < 2) {
-                inputQueue.add(newDir)
-            }
+            if (inputQueue.size < 2) inputQueue.add(newDir)
         }
     }
 
@@ -78,7 +68,7 @@ class SnakePhysics {
     }
 
     private fun tick() {
-        // CONSUME INPUT
+        // Apply buffered input
         if (inputQueue.isNotEmpty()) {
             player.nextDir = inputQueue.removeFirst()
         }
@@ -97,7 +87,7 @@ class SnakePhysics {
         val head = snake.head()
         val newHead = Point(head.x + snake.dir.x, head.y + snake.dir.y)
 
-        snake.body.add(0, newHead) // Unshift
+        snake.body.add(0, newHead)
 
         if (newHead == food) {
             snake.score++
@@ -105,7 +95,7 @@ class SnakePhysics {
             spawnFood()
         } else {
             snake.didEat = false
-            snake.body.removeAt(snake.body.size - 1) // Pop
+            snake.body.removeAt(snake.body.size - 1)
         }
     }
 
@@ -115,7 +105,7 @@ class SnakePhysics {
         val pHead = player.head()
         val aHead = ai.head()
 
-        // Check bounds & body collisions
+        // Collisions: Bounds, Own Body, Enemy Body
         if (isOutOfBounds(pHead) || checkBodyCollision(pHead, player.body, 1) || checkBodyCollision(pHead, ai.body, 0)) {
             player.isAlive = false
         }
@@ -172,39 +162,52 @@ class SnakePhysics {
         val distP_Food = abs(pHead.x - food.x) + abs(pHead.y - food.y)
         val playerAboutToEat = distP_Food <= 1
 
+        // Pass tail status to isOccupied to correctly identify exits
+        val ignoreAiTail = if(ai.didEat) null else ai
+
         for (move in moves) {
             val nX = head.x + move.x
             val nY = head.y + move.y
             var currentScore = 0.0
 
+            // 1. SAFETY
             if (nX !in 0..<TILE_COUNT_X || nY < 0 || nY >= TILE_COUNT_Y) continue
-            if (isOccupied(nX, nY, ignoreTailOf = if(ai.didEat) null else ai, playerMightGrow = playerAboutToEat)) continue
+            if (isOccupied(nX, nY, ignoreTailOf = ignoreAiTail, playerMightGrow = playerAboutToEat)) continue
 
+            // 2. TUNNEL AVOIDANCE
             var exits = 0
             val dirs = listOf(Pair(0,1), Pair(0,-1), Pair(1,0), Pair(-1,0))
             for ((dx, dy) in dirs) {
-                if (!isOccupied(nX + dx, nY + dy, playerMightGrow = playerAboutToEat)) exits++
+                // Check neighbors with the same occupation logic
+                if (!isOccupied(nX + dx, nY + dy, ignoreTailOf = ignoreAiTail, playerMightGrow = playerAboutToEat)) exits++
             }
+
             if (exits <= 2) {
                 val distToPlayerHead = abs(nX - pHead.x) + abs(nY - pHead.y)
-                if (distToPlayerHead < 4) currentScore += SnakeConfig.AI_SCORE_TUNNEL_DEATH
+                if (distToPlayerHead < SnakeConfig.AI_TUNNEL_FEAR_DISTANCE) {
+                    currentScore += SnakeConfig.AI_SCORE_TUNNEL_DEATH
+                }
             }
 
+            // 3. SURVIVAL
             val space = floodFill(nX, nY, playerAboutToEat)
-            if (space < ai.body.size + 2) currentScore += SnakeConfig.AI_SCORE_TRAPPED
-            else currentScore += (space * SnakeConfig.AI_SCORE_SPACE_MULTIPLIER)
+            currentScore += if (space < ai.body.size + 2) SnakeConfig.AI_SCORE_TRAPPED
+            else (space * SnakeConfig.AI_SCORE_SPACE_MULTIPLIER)
 
+            // 4. ANTI-DRAW
             val pNextHeadX = pHead.x + player.dir.x
             val pNextHeadY = pHead.y + player.dir.y
             if (nX == pNextHeadX && nY == pNextHeadY) {
                 currentScore += SnakeConfig.AI_SCORE_HEAD_ON_COLLISION
             }
 
+            // 5. GREED
             val distF = abs(nX - food.x) + abs(nY - food.y)
             if (distF < 10) {
                 currentScore += (10 - distF) * 1500
             }
 
+            // 6. KILLER INSTINCT
             val predictPx = pHead.x + player.dir.x * 3
             val predictPy = pHead.y + player.dir.y * 3
             val distI = abs(nX - predictPx) + abs(nY - predictPy)
@@ -220,7 +223,7 @@ class SnakePhysics {
     }
 
     private fun isOccupied(x: Int, y: Int, ignoreTailOf: SnakeEntity? = null, playerMightGrow: Boolean = false): Boolean {
-        if (x < 0 || x >= TILE_COUNT_X || y < 0 || y >= TILE_COUNT_Y) return true
+        if (x !in 0..<TILE_COUNT_X || y < 0 || y >= TILE_COUNT_Y) return true
 
         val pLimit = if (playerMightGrow) player.body.size else player.body.size - 1
         for (i in 0 until pLimit) {

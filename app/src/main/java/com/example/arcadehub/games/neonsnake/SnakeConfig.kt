@@ -19,6 +19,8 @@ object SnakeConfig {
     const val AI_SCORE_HEAD_ON_COLLISION = -150_000
     const val AI_SCORE_SPACE_MULTIPLIER = 20
 
+    const val AI_TUNNEL_FEAR_DISTANCE = 12
+
     // Visuals
     val COLOR_BG = "#050505".toColorInt()
     val COLOR_GRID = "#111111".toColorInt()
