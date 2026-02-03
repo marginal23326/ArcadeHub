@@ -7,6 +7,7 @@ import com.example.arcadehub.core.Scene
 import com.example.arcadehub.games.blockstack.BlockStackScene
 import com.example.arcadehub.games.echorunner.EchoRunnerScene
 import com.example.arcadehub.games.orbithop.OrbitHopScene
+import com.example.arcadehub.games.neonsnake.NeonSnakeScene
 import com.example.arcadehub.managers.SceneManager
 import com.example.arcadehub.managers.SoundManager
 import kotlin.system.exitProcess
@@ -27,7 +28,8 @@ class HubScene : Scene {
     private val gameList = listOf(
         HubGameData("BLOCK STACK", R.drawable.menu_blockstack) { BlockStackScene() },
         HubGameData("ECHO RUNNER", R.drawable.menu_echorunner) { EchoRunnerScene() },
-        HubGameData("ORBIT HOP", R.drawable.menu_orbithop) { OrbitHopScene() }
+        HubGameData("ORBIT HOP", R.drawable.menu_orbithop) { OrbitHopScene() },
+        HubGameData("NEON SNAKE", R.drawable.menu_neonsnake) { NeonSnakeScene() }
     )
 
     companion object { private var lastSelection = 0 }
