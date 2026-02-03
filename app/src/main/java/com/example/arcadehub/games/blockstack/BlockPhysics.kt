@@ -1,5 +1,6 @@
 package com.example.arcadehub.games.blockstack
 
+import com.example.arcadehub.core.MathUtils
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
@@ -172,13 +173,13 @@ class LinearPhysics : BaseBlockPhysics() {
         val newX = if (isPerfect) previousBlockX else if (isWidenerActive) currentBlockX else overlapStart
 
         if (!isPerfect && !isWidenerActive) {
-            val currentColor = BlockConfig.COLORS[score % BlockConfig.COLORS.size]
+            val currentColor = BlockConfig.getBlockColor(score)
             // Debris creation
             if (currentLeft < prevLeft) debrisList.add(Debris(currentLeft, stackY, prevLeft - currentLeft, BlockConfig.BLOCK_HEIGHT, currentColor, 0f, -5f, 0f, 5f, false))
             if (currentRight > prevRight) debrisList.add(Debris(prevRight, stackY, currentRight - prevRight, BlockConfig.BLOCK_HEIGHT, currentColor, 0f, -5f, 0f, 5f, false))
         }
 
-        val placedColor = BlockConfig.COLORS[score % BlockConfig.COLORS.size]
+        val placedColor = BlockConfig.getBlockColor(score)
         stackList.add(Block(score, newX, stackY, finalWidth, placedColor))
         previousBlockX = newX; previousBlockWidth = finalWidth; currentBlockWidth = finalWidth
 
@@ -251,20 +252,14 @@ class RadialPhysics : BaseBlockPhysics() {
     override fun calculatePlacement(score: Int, isMagnetActive: Boolean, isWidenerActive: Boolean): PlacementResult {
         val targetStart = prevAngle - (prevSweep / 2f)
         val currentStartAbs = currentAngle - (currentSweep / 2f)
-        fun getRelativeAngle(angle: Float, reference: Float): Float {
-            var diff = angle - reference
-            while (diff > 180) diff -= 360
-            while (diff < -180) diff += 360
-            return diff
-        }
-        val relCurrentStart = getRelativeAngle(currentStartAbs, targetStart)
+        val relCurrentStart = MathUtils.getAngleDiff(currentStartAbs, targetStart)
         val relCurrentEnd = relCurrentStart + currentSweep
         val relTargetStart = 0f; val relTargetEnd = prevSweep
         val overlapStart = max(relCurrentStart, relTargetStart)
         val overlapEnd = min(relCurrentEnd, relTargetEnd)
         val overlapSweep = overlapEnd - overlapStart
         if (overlapSweep <= 0) return PlacementResult(PlacementType.MISS)
-        val angularDiff = abs(getRelativeAngle(currentAngle, prevAngle))
+        val angularDiff = abs(MathUtils.getAngleDiff(currentAngle, prevAngle))
         var tolerance = BlockConfig.PERFECT_TOLERANCE_DEGREES
         if (isMagnetActive) tolerance *= BlockConfig.MAGNET_TOLERANCE_MULTIPLIER
         var isPerfect = false
@@ -275,13 +270,13 @@ class RadialPhysics : BaseBlockPhysics() {
         if (isPerfect) { finalSweep = prevSweep; newAngle = prevAngle }
         else if (isWidenerActive) { finalSweep = currentSweep; newAngle = currentAngle }
         else { finalSweep = overlapSweep; newAngle = (targetStart + overlapStart + (finalSweep / 2f))
-            val currentColor = BlockConfig.COLORS[score % BlockConfig.COLORS.size]
+            val currentColor = BlockConfig.getBlockColor(score)
             synchronized(debrisList) {
                 if (relCurrentStart < relTargetStart) spawnRadialDebris(targetStart + relCurrentStart, relTargetStart - relCurrentStart, currentColor)
                 if (relCurrentEnd > relTargetEnd) spawnRadialDebris(targetStart + relTargetEnd, relCurrentEnd - relTargetEnd, currentColor)
             }
         }
-        val placedColor = BlockConfig.COLORS[score % BlockConfig.COLORS.size]
+        val placedColor = BlockConfig.getBlockColor(score)
         synchronized(stackList) { stackList.add(ArcBlock(score, currentRadius, newAngle - (finalSweep / 2f), finalSweep, placedColor)) }
         prevAngle = newAngle; prevSweep = finalSweep; currentSweep = finalSweep
         return PlacementResult(if (isPerfect) PlacementType.PERFECT else PlacementType.NORMAL, accuracy)

@@ -15,15 +15,19 @@ object HubConfig {
     const val COLUMNS = 5
 }
 
-data class HubGameData(val title: String, val resId: Int)
+data class HubGameData(
+    val title: String,
+    val resId: Int,
+    val sceneFactory: () -> Scene
+)
 
 class HubScene : Scene {
     private val renderer = HubRenderer()
 
     private val gameList = listOf(
-        HubGameData("BLOCK STACK", R.drawable.menu_blockstack),
-        HubGameData("ECHO RUNNER", R.drawable.menu_echorunner),
-        HubGameData("ORBIT HOP", R.drawable.menu_orbithop),
+        HubGameData("BLOCK STACK", R.drawable.menu_blockstack) { BlockStackScene() },
+        HubGameData("ECHO RUNNER", R.drawable.menu_echorunner) { EchoRunnerScene() },
+        HubGameData("ORBIT HOP", R.drawable.menu_orbithop) { OrbitHopScene() }
     )
 
     companion object { private var lastSelection = 0 }
@@ -38,11 +42,10 @@ class HubScene : Scene {
 
         val cols = HubConfig.COLUMNS
         val row = selectedIndex / cols
-        val col = selectedIndex % cols
 
         when (action) {
             InputAction.LEFT -> {
-                if (col > 0) {
+                if (selectedIndex % cols > 0) {
                     selectedIndex--
                     SoundManager.playSelect()
                 }
@@ -75,13 +78,9 @@ class HubScene : Scene {
 
     private fun launchGame(index: Int) {
         lastSelection = index
-        val nextScene = when (index) {
-            0 -> BlockStackScene()
-            1 -> EchoRunnerScene()
-            2 -> OrbitHopScene()
-            else -> BlockStackScene()
+        if (index in gameList.indices) {
+            SceneManager.switchScene(gameList[index].sceneFactory())
         }
-        SceneManager.switchScene(nextScene)
     }
 
     override fun exit() { }

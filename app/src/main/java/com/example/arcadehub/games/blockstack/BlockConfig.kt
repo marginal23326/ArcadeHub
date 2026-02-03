@@ -51,6 +51,10 @@ object BlockConfig {
         "#FF5722".toColorInt()
     )
 
+    fun getBlockColor(score: Int): Int {
+        return COLORS[score % COLORS.size]
+    }
+
     const val COLOR_PERFECT = 0xFF00FFFF.toInt()
     const val COLOR_GREAT = 0xFF00FF00.toInt()
     const val COLOR_NICE = 0xFFFFFFFF.toInt()
