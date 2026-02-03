@@ -2,6 +2,7 @@ package com.example.arcadehub.games.neonsnake
 
 import com.example.arcadehub.games.neonsnake.SnakeConfig.TILE_COUNT_X
 import com.example.arcadehub.games.neonsnake.SnakeConfig.TILE_COUNT_Y
+import com.example.arcadehub.managers.SoundManager
 import kotlin.math.abs
 import kotlin.random.Random
 
@@ -93,6 +94,12 @@ class SnakePhysics {
             snake.score++
             snake.didEat = true
             spawnFood()
+
+            if (snake == player) {
+                SoundManager.playPerfect(0)
+            } else {
+                SoundManager.playPlaceVariation()
+            }
         } else {
             snake.didEat = false
             snake.body.removeAt(snake.body.size - 1)
