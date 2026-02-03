@@ -2,6 +2,7 @@ package com.example.arcadehub.games.hub
 
 import android.graphics.*
 import com.example.arcadehub.core.Constants
+import com.example.arcadehub.core.MathUtils
 import com.example.arcadehub.managers.SceneManager
 import kotlin.math.sin
 import androidx.core.graphics.createBitmap
@@ -43,7 +44,7 @@ class HubRenderer {
     fun updateAnim(dt: Float) {
         time += dt
         // Smoothly interpolate scroll
-        scrollY += (targetScrollY - scrollY) * 0.1f
+        scrollY = MathUtils.lerp(scrollY, targetScrollY, 0.1f)
     }
 
     fun draw(canvas: Canvas, games: List<HubGameData>, selectedIndex: Int) {

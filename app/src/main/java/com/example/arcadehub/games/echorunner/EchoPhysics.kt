@@ -1,6 +1,7 @@
 package com.example.arcadehub.games.echorunner
 
 import com.example.arcadehub.core.Constants
+import com.example.arcadehub.core.MathUtils
 import kotlin.random.Random
 
 class EchoPhysics {
@@ -90,10 +91,10 @@ class EchoPhysics {
             if (obs.x + obs.w < 0) obs.active = false
 
             // Collision
-            if (player.x < obs.x + obs.w &&
-                player.x + player.size > obs.x &&
-                player.y < obs.y + obs.h &&
-                player.y + player.size > obs.y) {
+            if (MathUtils.isAABBCollision(
+                    player.x, player.y, player.size, player.size,
+                    obs.x, obs.y, obs.w, obs.h
+                )) {
 
                 val isRealCrash = (obs.type == DimensionType.REAL && !player.isEcho)
                 val isEchoCrash = (obs.type == DimensionType.ECHO && player.isEcho)

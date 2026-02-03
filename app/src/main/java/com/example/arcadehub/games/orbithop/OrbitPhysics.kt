@@ -1,5 +1,6 @@
 package com.example.arcadehub.games.orbithop
 
+import com.example.arcadehub.core.MathUtils
 import com.example.arcadehub.managers.SoundManager
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -101,9 +102,7 @@ class OrbitPhysics {
 
                 activeTarget = p
 
-                val dx = player.x - p.x
-                val dy = player.y - p.y
-                val distSq = dx*dx + dy*dy
+                val distSq = MathUtils.distSq(player.x, player.y, p.x, p.y)
 
                 if (distSq <= OrbitConfig.CATCH_RADIUS_SQ) {
                     onPivotCatch(p, screenWidth)
@@ -120,7 +119,7 @@ class OrbitPhysics {
         if (trailCount < OrbitConfig.TRAIL_LENGTH) trailCount++
 
         val targetCamY = player.y - (screenHeight * 0.75f)
-        cameraY += (targetCamY - cameraY) * (5.0f * dt)
+        cameraY = MathUtils.lerp(cameraY, targetCamY, 5.0f * dt)
     }
 
     private fun checkBounds(screenWidth: Int, screenHeight: Int, target: Pivot?) {
