@@ -169,8 +169,7 @@ class SnakePhysics {
         val distP_Food = abs(pHead.x - food.x) + abs(pHead.y - food.y)
         val playerAboutToEat = distP_Food <= 1
 
-        // Pass tail status to isOccupied to correctly identify exits
-        val ignoreAiTail = if(ai.didEat) null else ai
+        val ignoreAiTail = if (ai.didEat) null else ai
 
         for (move in moves) {
             val nX = head.x + move.x
@@ -182,14 +181,29 @@ class SnakePhysics {
             if (isOccupied(nX, nY, ignoreTailOf = ignoreAiTail, playerMightGrow = playerAboutToEat)) continue
 
             // 2. TUNNEL AVOIDANCE
-            var exits = 0
-            val dirs = listOf(Pair(0,1), Pair(0,-1), Pair(1,0), Pair(-1,0))
+            var threats = 0
+            val dirs = listOf(Pair(0, 1), Pair(0, -1), Pair(1, 0), Pair(-1, 0))
             for ((dx, dy) in dirs) {
-                // Check neighbors with the same occupation logic
-                if (!isOccupied(nX + dx, nY + dy, ignoreTailOf = ignoreAiTail, playerMightGrow = playerAboutToEat)) exits++
-            }
+                val neighborX = nX + dx
+                val neighborY = nY + dy
 
-            if (exits <= 2) {
+                if (isOutOfBounds(Point(neighborX, neighborY))) {
+                    threats++
+                    continue
+                }
+
+                val pLimit = if (playerAboutToEat) player.body.size else player.body.size - 1
+                for (i in 0 until pLimit) {
+                    if (player.body[i].x == neighborX && player.body[i].y == neighborY) {
+                        threats++
+                        break
+                    }
+                }
+            }
+            
+            val safeExits = 4 - threats
+            
+            if (safeExits <= 2) {
                 val distToPlayerHead = abs(nX - pHead.x) + abs(nY - pHead.y)
                 if (distToPlayerHead < SnakeConfig.AI_TUNNEL_FEAR_DISTANCE) {
                     currentScore += SnakeConfig.AI_SCORE_TUNNEL_DEATH
@@ -197,7 +211,9 @@ class SnakePhysics {
             }
 
             // 3. SURVIVAL
-            val space = floodFill(nX, nY, playerAboutToEat)
+            val isTail = !ai.didEat && nX == ai.body.last().x && nY == ai.body.last().y
+            val space = if (isTail) 200 else floodFill(nX, nY, playerAboutToEat)
+            
             currentScore += if (space < ai.body.size + 2) SnakeConfig.AI_SCORE_TRAPPED
             else (space * SnakeConfig.AI_SCORE_SPACE_MULTIPLIER)
 
