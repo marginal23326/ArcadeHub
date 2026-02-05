@@ -82,9 +82,9 @@ class SnakeRenderer {
         if (physics.isGameOver) {
             GraphicsUtils.drawGameOverMenu(
                 canvas, width, height,
-                title = "SYSTEM TERMINATED",
-                scoreMsg = physics.gameOverReason,
-                subMsg = "Final Score: ${physics.player.score}",
+                title = physics.gameOverReason,
+                scoreMsg = "SCORE: ${physics.player.score}", // Secondary text
+                subMsg = "OPPONENT: ${physics.getBrainName()}", // Small detail text
                 footerMsg = "CENTER to Reboot | BACK to Menu"
             )
         }
