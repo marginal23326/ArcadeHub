@@ -27,9 +27,11 @@ object SnakeConfig {
 
     val COLOR_P1_HEAD = Color.WHITE
     val COLOR_P1_BODY = Color.CYAN
+    val COLOR_P1_TAIL = "#003344".toColorInt() // Deep dark cyan
 
     val COLOR_AI_HEAD = Color.WHITE
     val COLOR_AI_BODY = "#FF0055".toColorInt() // Neon Pink
+    val COLOR_AI_TAIL = "#440011".toColorInt() // Deep dark maroon
 
     val COLOR_FOOD = Color.YELLOW
     val COLOR_BEST_TEXT = Color.LTGRAY

@@ -14,11 +14,7 @@ class SnakeRenderer {
         setShadowLayer(15f, 0f, 0f, SnakeConfig.COLOR_FOOD)
     }
 
-    private val p1HeadPaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_P1_HEAD).apply { setShadowLayer(10f, 0f, 0f, Color.WHITE) }
-    private val p1BodyPaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_P1_BODY)
-
-    private val aiHeadPaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_AI_HEAD).apply { setShadowLayer(10f, 0f, 0f, Color.WHITE) }
-    private val aiBodyPaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_AI_BODY)
+    private val snakePaint = Paint().apply { isAntiAlias = true }
 
     private val hudTextPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 40f, typeface = Typeface.DEFAULT_BOLD)
     private val bestScorePaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_BEST_TEXT, textSize = 35f, align = Paint.Align.CENTER)
@@ -27,7 +23,7 @@ class SnakeRenderer {
 
     fun draw(canvas: Canvas, physics: SnakePhysics, width: Int, height: Int, highScore: Int) {
         drawInternal(
-            canvas, width, height, highScore,
+            canvas, width, highScore,
             physics.player.body, physics.ai.body, physics.food,
             physics.player.score, physics.ai.score
         )
@@ -40,7 +36,7 @@ class SnakeRenderer {
 
     fun drawReplayFrame(canvas: Canvas, snapshot: GameSnapshot, width: Int, height: Int, highScore: Int, physics: SnakePhysics) {
         drawInternal(
-            canvas, width, height, highScore,
+            canvas, width, highScore,
             snapshot.playerBody, snapshot.aiBody, snapshot.food,
             snapshot.pScore, snapshot.aScore
         )
@@ -54,7 +50,7 @@ class SnakeRenderer {
     }
 
     private fun drawInternal(
-        canvas: Canvas, width: Int, height: Int, highScore: Int,
+        canvas: Canvas, width: Int, highScore: Int,
         pBody: List<Point>, aBody: List<Point>, food: Point,
         pScore: Int, aScore: Int
     ) {
@@ -87,19 +83,11 @@ class SnakeRenderer {
         }
 
         // Food
-        drawCell(canvas, food.x, food.y, cellSize, foodPaint, true)
+        drawCell(canvas, food.x, food.y, cellSize, foodPaint, isHead = true, shrink = 0f)
 
-        // Player
-        pBody.forEachIndexed { index, point ->
-            val paint = if (index == 0) p1HeadPaint else p1BodyPaint
-            drawCell(canvas, point.x, point.y, cellSize, paint, index == 0)
-        }
-
-        // AI
-        aBody.forEachIndexed { index, point ->
-            val paint = if (index == 0) aiHeadPaint else aiBodyPaint
-            drawCell(canvas, point.x, point.y, cellSize, paint, index == 0)
-        }
+        // 2. NON-REPETITIVE CALLS
+        drawSnake(canvas, pBody, cellSize, SnakeConfig.COLOR_P1_HEAD, SnakeConfig.COLOR_P1_BODY, SnakeConfig.COLOR_P1_TAIL)
+        drawSnake(canvas, aBody, cellSize, SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY, SnakeConfig.COLOR_AI_TAIL)
     }
 
     private fun drawGameOverOverlay(canvas: Canvas, width: Int, height: Int, physics: SnakePhysics) {
@@ -112,9 +100,39 @@ class SnakeRenderer {
         )
     }
 
-    private fun drawCell(canvas: Canvas, gx: Int, gy: Int, cellSize: Float, paint: Paint, isRound: Boolean) {
-        val padding = 2f
-        rect.set(gx * cellSize + padding, gy * cellSize + padding, (gx + 1) * cellSize - padding, (gy + 1) * cellSize - padding)
-        if (isRound) canvas.drawRoundRect(rect, 8f, 8f, paint) else canvas.drawRect(rect, paint)
+    private fun drawSnake(canvas: Canvas, body: List<Point>, cellSize: Float, hCol: Int, bCol: Int, tCol: Int) {
+        body.forEachIndexed { index, point ->
+            val isHead = index == 0
+
+            // Calculate Color Gradient
+            snakePaint.color = if (isHead) hCol else lerpColor(bCol, tCol, index.toFloat() / body.size)
+
+            // Apply Glow to head only
+            if (isHead) snakePaint.setShadowLayer(15f, 0f, 0f, Color.WHITE) else snakePaint.clearShadowLayer()
+
+            // Calculate Tapering (Tail is 20% smaller than head)
+            val shrink = if (isHead) 0f else (index.toFloat() / body.size) * (cellSize * 0.2f)
+
+            drawCell(canvas, point.x, point.y, cellSize, snakePaint, isHead, shrink)
+        }
+    }
+
+    private fun drawCell(canvas: Canvas, gx: Int, gy: Int, cellSize: Float, paint: Paint, isHead: Boolean, shrink: Float) {
+        val padding = 2f + (shrink / 2f)
+        rect.set(
+            gx * cellSize + padding,
+            gy * cellSize + padding,
+            (gx + 1) * cellSize - padding,
+            (gy + 1) * cellSize - padding
+        )
+        val radius = if (isHead) 12f else 6f
+        canvas.drawRoundRect(rect, radius, radius, paint)
+    }
+
+    private fun lerpColor(s: Int, e: Int, f: Float): Int {
+        val r = (Color.red(s) + (Color.red(e) - Color.red(s)) * f).toInt()
+        val g = (Color.green(s) + (Color.green(e) - Color.green(s)) * f).toInt()
+        val b = (Color.blue(s) + (Color.blue(e) - Color.blue(s)) * f).toInt()
+        return Color.rgb(r, g, b)
     }
 }
