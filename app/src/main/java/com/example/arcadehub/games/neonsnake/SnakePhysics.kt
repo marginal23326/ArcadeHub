@@ -19,6 +19,8 @@ class SnakePhysics {
 
     // AI BRAIN
     private var brain: SnakeBrain = PassiveBrain() // Default
+    private val historyBuffer = ArrayDeque<GameSnapshot>()
+    private val MAX_HISTORY = 20
 
     fun setDifficulty(isAggressive: Boolean) {
         brain = if (isAggressive) HunterBrain() else PassiveBrain()
@@ -30,6 +32,7 @@ class SnakePhysics {
         isGameOver = false
         moveTimer = 0f
         inputQueue.clear()
+        historyBuffer.clear()
 
         player = SnakeEntity(
             body = arrayListOf(Point(5, 14), Point(5, 15), Point(5, 16)),
@@ -67,6 +70,8 @@ class SnakePhysics {
     }
 
     private fun tick() {
+        recordSnapshot()
+
         if (inputQueue.isNotEmpty()) {
             player.nextDir = inputQueue.removeFirst()
         }
@@ -79,6 +84,32 @@ class SnakePhysics {
         moveSnake(player)
         moveSnake(ai)
         checkCollisions()
+    }
+
+    private fun recordSnapshot() {
+        val snapshot = GameSnapshot(
+            playerBody = ArrayList(player.body), // Deep copy list
+            aiBody = ArrayList(ai.body),         // Deep copy list
+            food = food.copy(),
+            pScore = player.score,
+            aScore = ai.score,
+            pHeadColor = SnakeConfig.COLOR_P1_HEAD,
+            aHeadColor = SnakeConfig.COLOR_AI_HEAD
+        )
+
+        historyBuffer.add(snapshot)
+        if (historyBuffer.size > MAX_HISTORY) {
+            historyBuffer.removeFirst()
+        }
+    }
+
+    fun getReplayHistory(): List<GameSnapshot> {
+        val frames = 10
+        val size = historyBuffer.size
+        if (size <= frames) return historyBuffer.toList()
+
+        // Convert to list and take the tail
+        return historyBuffer.toList().takeLast(frames)
     }
 
     private fun moveSnake(snake: SnakeEntity) {
@@ -112,38 +143,21 @@ class SnakePhysics {
         val aHead = ai.head()
 
         // 1. Wall & Self Collisions
-        if (isOutOfBounds(pHead) || checkBodyCollision(pHead, player.body, 1)) {
-            player.isAlive = false
-        }
-        if (isOutOfBounds(aHead) || checkBodyCollision(aHead, ai.body, 1)) {
-            ai.isAlive = false
-        }
+        if (isOutOfBounds(pHead) || checkBodyCollision(pHead, player.body, 1)) player.isAlive = false
+        if (isOutOfBounds(aHead) || checkBodyCollision(aHead, ai.body, 1)) ai.isAlive = false
 
-        // 2. Enemy Body Collisions
-        // If we check index 0 here, a head-on collision counts as hitting a body part and kills instantly.
-        if (checkBodyCollision(pHead, ai.body, 1)) {
-            player.isAlive = false
-        }
-        if (checkBodyCollision(aHead, player.body, 1)) {
-            ai.isAlive = false
-        }
+        // 2. Enemy Body Collisions (Index 1+ to allow head-on comparison below)
+        if (checkBodyCollision(pHead, ai.body, 1)) player.isAlive = false
+        if (checkBodyCollision(aHead, player.body, 1)) ai.isAlive = false
 
         // 3. Head-to-Head Resolution
         if (pHead == aHead) {
-            // Only resolve by size if they haven't already died from walls/tails
             if (player.isAlive && ai.isAlive) {
-                if (player.body.size > ai.body.size) {
-                    ai.isAlive = false      // Player wins
-                } else if (ai.body.size > player.body.size) {
-                    player.isAlive = false  // AI wins
-                } else {
-                    player.isAlive = false  // Equal size = Draw
-                    ai.isAlive = false
-                }
+                if (player.body.size > ai.body.size) ai.isAlive = false
+                else if (ai.body.size > player.body.size) player.isAlive = false
+                else { player.isAlive = false; ai.isAlive = false }
             } else {
-                // If they crashed into walls/tails AND each other, ensure both are dead
-                player.isAlive = false
-                ai.isAlive = false
+                player.isAlive = false; ai.isAlive = false
             }
         }
 
@@ -155,8 +169,11 @@ class SnakePhysics {
                 !player.isAlive -> "ROBOT WON"
                 else -> "YOU WON"
             }
+
+            recordSnapshot()
         }
     }
+
 
     private fun isOutOfBounds(p: Point) = p.x !in 0..<TILE_COUNT_X || p.y < 0 || p.y >= TILE_COUNT_Y
 

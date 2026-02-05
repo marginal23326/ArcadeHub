@@ -15,9 +15,14 @@ class NeonSnakeScene : BaseGameScene() {
     private val physics = SnakePhysics()
     private val renderer = SnakeRenderer()
 
-    private enum class State { SELECT_DIFFICULTY, PLAYING }
+    private enum class State { SELECT_DIFFICULTY, PLAYING, REPLAY }
     private var currentState = State.SELECT_DIFFICULTY
-    private var selectedDifficulty = 0 // 0 = Standard, 1 = Aggressive
+    private var selectedDifficulty = 0
+
+    private var replayData: List<GameSnapshot> = emptyList()
+    private var replayIndex = 0
+    private var replayTimer = 0f
+    private val REPLAY_SPEED = 0.5f // 0.5s per tick
 
     override val highScoreKey: String = "SNAKE_HIGHSCORE"
 
@@ -32,30 +37,66 @@ class NeonSnakeScene : BaseGameScene() {
         isGameOver = false
         isPaused = false
         score = 0
-        // Don't reset physics yet, wait for selection
     }
 
     override fun update(dt: Float) {
-        if (currentState == State.PLAYING && !isPaused) {
-            physics.update(dt)
-            score = physics.player.score
+        when (currentState) {
+            State.PLAYING -> {
+                if (isPaused) return
+                physics.update(dt)
+                score = physics.player.score
 
-            if (physics.isGameOver && !isGameOver) {
-                isGameOver = true
-                SoundManager.playGameOver()
-                checkNewHighScore()
+                if (physics.isGameOver && !isGameOver) {
+                    startReplayMode()
+                }
             }
+            State.REPLAY -> {
+                // Loop through history slowly
+                replayTimer += dt
+                if (replayTimer >= REPLAY_SPEED) {
+                    replayTimer = 0f
+                    replayIndex++
+                    if (replayIndex >= replayData.size) {
+                        replayIndex = 0 // Loop back
+                    }
+                }
+            }
+            else -> {}
         }
     }
 
+    private fun startReplayMode() {
+        isGameOver = true
+        SoundManager.playGameOver()
+        checkNewHighScore()
+
+        replayData = physics.getReplayHistory()
+        replayIndex = 0
+        replayTimer = 0f
+        currentState = State.REPLAY
+    }
+
     override fun draw(canvas: Canvas) {
-        if (currentState == State.SELECT_DIFFICULTY) {
-            drawDifficultyMenu(canvas)
-        } else {
-            renderer.draw(canvas, physics, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, highScore)
-            if (isPaused) {
-                GraphicsUtils.drawPauseMenu(canvas, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT)
+        when (currentState) {
+            State.SELECT_DIFFICULTY -> drawDifficultyMenu(canvas)
+            State.PLAYING -> renderer.draw(canvas, physics, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, highScore)
+            State.REPLAY -> {
+                // Ensure we have data, otherwise fallback to standard draw
+                if (replayData.isNotEmpty()) {
+                    renderer.drawReplayFrame(
+                        canvas,
+                        replayData[replayIndex],
+                        Constants.LOGIC_WIDTH,
+                        Constants.LOGIC_HEIGHT,
+                        highScore,
+                        physics // Pass physics just for the Game Over text content
+                    )
+                }
             }
+        }
+
+        if (isPaused) {
+            GraphicsUtils.drawPauseMenu(canvas, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT)
         }
     }
 
@@ -82,6 +123,66 @@ class NeonSnakeScene : BaseGameScene() {
         }
     }
 
+    override fun onInput(action: InputAction, isDown: Boolean) {
+        if (!isDown) return
+
+        // STATE: Personality Menu
+        if (currentState == State.SELECT_DIFFICULTY) {
+            if (action == InputAction.BACK) {
+                quitToHub() // Only exit to main hub from the snake menu
+            } else {
+                handleStartInput(action)
+            }
+            return
+        }
+
+        // STATE: Paused
+        if (isPaused) {
+            when (action) {
+                InputAction.SELECT -> {
+                    isPaused = false
+                    SoundManager.playSelect()
+                }
+                InputAction.BACK -> {
+                    resetGame() // Return to personality menu
+                    SoundManager.playSelect()
+                }
+                else -> {}
+            }
+            return
+        }
+
+        // STATE: Replay / Game Over
+        if (currentState == State.REPLAY) {
+            handleGameOverInput(action)
+            return
+        }
+
+        // STATE: Playing
+        if (currentState == State.PLAYING) {
+            if (action == InputAction.BACK) {
+                pauseGame()
+            } else {
+                handleGameInput(action, true)
+            }
+        }
+    }
+
+    override fun handleGameOverInput(action: InputAction) {
+        when (action) {
+            InputAction.SELECT -> {
+                // Restart immediately with the same AI
+                startGame()
+            }
+            InputAction.BACK -> {
+                // Return to the Personality Menu
+                resetGame()
+                SoundManager.playSelect()
+            }
+            else -> {}
+        }
+    }
+
     override fun handleStartInput(action: InputAction) {
         // Override default start behavior to handle menu
         if (currentState == State.SELECT_DIFFICULTY) {
@@ -102,6 +203,7 @@ class NeonSnakeScene : BaseGameScene() {
     private fun startGame() {
         physics.setDifficulty(selectedDifficulty == 1)
         physics.reset()
+        isGameOver = false
         currentState = State.PLAYING
         isGameStarted = true
         SoundManager.playPerfect(1)

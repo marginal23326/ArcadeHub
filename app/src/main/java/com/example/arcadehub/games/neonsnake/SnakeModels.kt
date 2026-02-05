@@ -9,6 +9,16 @@ enum class GridDir(val x: Int, val y: Int) {
 
 data class Point(val x: Int, val y: Int)
 
+data class GameSnapshot(
+    val playerBody: List<Point>,
+    val aiBody: List<Point>,
+    val food: Point,
+    val pScore: Int,
+    val aScore: Int,
+    val pHeadColor: Int, // Store color in case we want to flash red on death later
+    val aHeadColor: Int
+)
+
 class SnakeEntity(
     var body: ArrayList<Point>,
     var dir: GridDir,
