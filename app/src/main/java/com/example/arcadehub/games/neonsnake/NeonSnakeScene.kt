@@ -15,28 +15,33 @@ class NeonSnakeScene : BaseGameScene() {
     private val physics = SnakePhysics()
     private val renderer = SnakeRenderer()
 
-    private enum class State { SELECT_DIFFICULTY, PLAYING, REPLAY }
-    private var currentState = State.SELECT_DIFFICULTY
-    private var selectedDifficulty = 0
+    // 1. Updated State Enum
+    private enum class State { MENU, PLAYING, REPLAY }
+
+    private var currentState = State.MENU
+
+    // 2. New Logic: Level 1 to 5
+    private var selectedLevel = 3
 
     private var replayData: List<GameSnapshot> = emptyList()
     private var replayIndex = 0
     private var replayTimer = 0f
-    private val REPLAY_SPEED = 0.5f // 0.5s per tick
+    private val REPLAY_SPEED = 0.5f
 
     override val highScoreKey: String = "SNAKE_HIGHSCORE"
 
     // UI Paints
-    private val menuTitlePaint = GraphicsUtils.createPaint(Color.CYAN, textSize = 80f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
-    private val menuOptPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 50f, align = Paint.Align.CENTER)
-    private val menuSelPaint = GraphicsUtils.createPaint(Color.YELLOW, textSize = 55f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+    private val menuTitlePaint = GraphicsUtils.createPaint(Color.CYAN, textSize = 70f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+    private val menuValPaint = GraphicsUtils.createPaint(Color.YELLOW, textSize = 90f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+    private val menuSubPaint = GraphicsUtils.createPaint(Color.LTGRAY, textSize = 35f, align = Paint.Align.CENTER)
 
     override fun resetGame() {
-        currentState = State.SELECT_DIFFICULTY
+        currentState = State.MENU
         isGameStarted = false
         isGameOver = false
         isPaused = false
         score = 0
+        // Don't reset selectedLevel, keep user preference
     }
 
     override fun update(dt: Float) {
@@ -51,14 +56,10 @@ class NeonSnakeScene : BaseGameScene() {
                 }
             }
             State.REPLAY -> {
-                // Loop through history slowly
                 replayTimer += dt
                 if (replayTimer >= REPLAY_SPEED) {
                     replayTimer = 0f
-                    replayIndex++
-                    if (replayIndex >= replayData.size) {
-                        replayIndex = 0 // Loop back
-                    }
+                    replayIndex = (replayIndex + 1) % maxOf(1, replayData.size)
                 }
             }
             else -> {}
@@ -69,27 +70,25 @@ class NeonSnakeScene : BaseGameScene() {
         isGameOver = true
         SoundManager.playGameOver()
         checkNewHighScore()
-
         replayData = physics.getReplayHistory()
         replayIndex = 0
-        replayTimer = 0f
         currentState = State.REPLAY
     }
 
     override fun draw(canvas: Canvas) {
         when (currentState) {
-            State.SELECT_DIFFICULTY -> drawDifficultyMenu(canvas)
-            State.PLAYING -> renderer.draw(canvas, physics, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, highScore)
+            State.MENU -> drawLevelMenu(canvas)
+            State.PLAYING -> {
+                renderer.draw(canvas, physics, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, highScore)
+            }
             State.REPLAY -> {
-                // Ensure we have data, otherwise fallback to standard draw
                 if (replayData.isNotEmpty()) {
                     renderer.drawReplayFrame(
                         canvas,
                         replayData[replayIndex],
                         Constants.LOGIC_WIDTH,
                         Constants.LOGIC_HEIGHT,
-                        highScore,
-                        physics // Pass physics just for the Game Over text content
+                        physics
                     )
                 }
             }
@@ -100,118 +99,111 @@ class NeonSnakeScene : BaseGameScene() {
         }
     }
 
-    private fun drawDifficultyMenu(canvas: Canvas) {
+    // 3. New Menu Drawing Logic
+    private fun drawLevelMenu(canvas: Canvas) {
         canvas.drawColor(SnakeConfig.COLOR_BG)
         val cx = Constants.LOGIC_WIDTH / 2f
         val cy = Constants.LOGIC_HEIGHT / 2f
 
-        canvas.drawText("SELECT AI PERSONALITY", cx, cy - 150f, menuTitlePaint)
+        canvas.drawText("ROBOT DIFFICULTY", cx, cy - 120f, menuTitlePaint)
 
-        val opt1 = "STANDARD (PASSIVE)"
-        val opt2 = "HUNTER (AGGRESSIVE)"
+        // Draw Arrows and Level Selector
+        val showLeft = if (selectedLevel > 1) "<" else " "
+        val showRight = if (selectedLevel < 5) ">" else " "
+        val label = "$showLeft   LEVEL $selectedLevel   $showRight"
 
-        if (selectedDifficulty == 0) {
-            canvas.drawText("> $opt1 <", cx, cy, menuSelPaint)
-            canvas.drawText(opt2, cx, cy + 100f, menuOptPaint)
-        } else {
-            canvas.drawText(opt1, cx, cy, menuOptPaint)
-            canvas.drawText("> $opt2 <", cx, cy + 100f, menuSelPaint)
+        canvas.drawText(label, cx, cy + 20f, menuValPaint)
+
+        // Simple, kid-friendly descriptions
+        val description = when (selectedLevel) {
+            1 -> "Novice: The robot is still learning."
+            2 -> "Skilled: He's getting the hang of it!"
+            3 -> "Expert: A very smart opponent."
+            4 -> "Master: He can see into the future!"
+            5 -> "Grandmaster: The ultimate challenge!"
+            else -> ""
         }
 
-        GraphicsUtils.createPaint(Color.LTGRAY, textSize = 30f, align = Paint.Align.CENTER).also {
-            canvas.drawText("UP/DOWN to Select  |  CENTER to Start", cx, cy + 300f, it)
+        canvas.drawText(description, cx, cy + 110f, menuSubPaint)
+
+        // Footer Help Text
+        GraphicsUtils.createPaint(Color.DKGRAY, textSize = 30f, align = Paint.Align.CENTER).also {
+            canvas.drawText("LEFT / RIGHT to change  |  CENTER to Play", cx, cy + 300f, it)
         }
     }
 
     override fun onInput(action: InputAction, isDown: Boolean) {
         if (!isDown) return
 
-        // STATE: Personality Menu
-        if (currentState == State.SELECT_DIFFICULTY) {
-            if (action == InputAction.BACK) {
-                quitToHub() // Only exit to main hub from the snake menu
-            } else {
-                handleStartInput(action)
-            }
+        if (currentState == State.MENU) {
+            if (action == InputAction.BACK) quitToHub()
+            else handleMenuInput(action)
             return
         }
 
-        // STATE: Paused
         if (isPaused) {
             when (action) {
-                InputAction.SELECT -> {
-                    isPaused = false
-                    SoundManager.playSelect()
-                }
-                InputAction.BACK -> {
-                    resetGame() // Return to personality menu
-                    SoundManager.playSelect()
-                }
+                InputAction.SELECT -> { isPaused = false; SoundManager.playSelect() }
+                InputAction.BACK -> { resetGame(); SoundManager.playSelect() }
                 else -> {}
             }
             return
         }
 
-        // STATE: Replay / Game Over
         if (currentState == State.REPLAY) {
             handleGameOverInput(action)
             return
         }
 
-        // STATE: Playing
         if (currentState == State.PLAYING) {
-            if (action == InputAction.BACK) {
-                pauseGame()
-            } else {
-                handleGameInput(action, true)
-            }
+            if (action == InputAction.BACK) pauseGame()
+            else handleGameInput(action)
         }
     }
 
     override fun handleGameOverInput(action: InputAction) {
         when (action) {
-            InputAction.SELECT -> {
-                // Restart immediately with the same AI
-                startGame()
+            InputAction.SELECT -> startGame() // Instant retry with same settings
+            InputAction.BACK -> { resetGame(); SoundManager.playSelect() }
+            else -> {}
+        }
+    }
+
+    // 4. New Menu Input Handling
+    private fun handleMenuInput(action: InputAction) {
+        when (action) {
+            InputAction.LEFT -> {
+                if (selectedLevel > 1) {
+                    selectedLevel--
+                    SoundManager.playSelect()
+                }
             }
-            InputAction.BACK -> {
-                // Return to the Personality Menu
-                resetGame()
-                SoundManager.playSelect()
+            InputAction.RIGHT -> {
+                if (selectedLevel < 5) {
+                    selectedLevel++
+                    SoundManager.playSelect()
+                }
+            }
+            InputAction.SELECT -> {
+                startGame()
             }
             else -> {}
         }
     }
 
-    override fun handleStartInput(action: InputAction) {
-        // Override default start behavior to handle menu
-        if (currentState == State.SELECT_DIFFICULTY) {
-            when (action) {
-                InputAction.UP, InputAction.DOWN -> {
-                    selectedDifficulty = if (selectedDifficulty == 0) 1 else 0
-                    SoundManager.playSelect()
-                }
-                InputAction.SELECT -> {
-                    startGame()
-                }
-                InputAction.BACK -> quitToHub()
-                else -> {}
-            }
-        }
-    }
-
     private fun startGame() {
-        physics.setDifficulty(selectedDifficulty == 1)
+        physics.setDifficultyLevel(selectedLevel)
         physics.reset()
+
         isGameOver = false
         currentState = State.PLAYING
         isGameStarted = true
         SoundManager.playPerfect(1)
     }
 
-    override fun handleGameInput(action: InputAction, isDown: Boolean) {
-        if (!isDown) return
+    override fun handleGameInput(action: InputAction, isDown: Boolean) { }
 
+    private fun handleGameInput(action: InputAction) {
         val dir = when (action) {
             InputAction.UP -> GridDir.UP
             InputAction.DOWN -> GridDir.DOWN

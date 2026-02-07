@@ -16,6 +16,13 @@ class SnakePhysics {
     private val inputQueue = ArrayDeque<GridDir>()
     private val historyBuffer = ArrayDeque<GameSnapshot>()
     private val MAX_HISTORY = 20
+    private var aiSearchDepth = 6
+
+    fun setDifficultyLevel(level: Int) {
+        aiSearchDepth = level * 2
+    }
+
+    fun getDifficultyLevel(): Int = aiSearchDepth / 2
 
     fun reset() {
         isGameOver = false
@@ -24,8 +31,6 @@ class SnakePhysics {
         historyBuffer.clear()
         foods.clear()
 
-        // 16x9 Board Centering
-        // Player starts Left-Center, AI starts Right-Center
         player = SnakeEntity(
             body = arrayListOf(Point(4, 4), Point(4, 5), Point(4, 6)),
             dir = GridDir.UP,
@@ -34,26 +39,22 @@ class SnakePhysics {
 
         ai = SnakeEntity(
             body = arrayListOf(Point(11, 4), Point(11, 5), Point(11, 6)),
-            dir = GridDir.DOWN, // Visual Down
+            dir = GridDir.DOWN,
             health = SnakeConfig.INITIAL_HEALTH
         )
 
-        // Spawn Initial Foods
         repeat(SnakeConfig.FOOD_COUNT) { placeFood() }
     }
 
     fun processInput(newDir: GridDir) {
         val lastDir = if (inputQueue.isNotEmpty()) inputQueue.last() else player.dir
-        // Prevent 180 turns
         if ((lastDir.x + newDir.x == 0) && (lastDir.y + newDir.y == 0)) return
         if (lastDir == newDir) return
-
         if (inputQueue.size < 2) inputQueue.add(newDir)
     }
 
     fun update(dt: Float) {
         if (isGameOver) return
-
         moveTimer += dt
         if (moveTimer >= SnakeConfig.GAME_SPEED_SECONDS) {
             moveTimer = 0f
@@ -62,29 +63,19 @@ class SnakePhysics {
     }
 
     private fun tick() {
-        if (inputQueue.isNotEmpty()) {
-            player.dir = inputQueue.removeFirst()
-        }
+        if (inputQueue.isNotEmpty()) player.dir = inputQueue.removeFirst()
 
-        // Get AI Move using the new exact replica Brain
-        val aiMove = SnakeAi.getSmartMove(ai, player, foods)
+        val aiMove = SnakeAi.getSmartMove(ai, player, foods, aiSearchDepth)
         ai.dir = aiMove
 
-        // Move
-        var pAlive = moveSnake(player)
-        var aAlive = moveSnake(ai)
+        val pAlive = moveSnake(player)
+        val aAlive = moveSnake(ai)
 
-        // Collision Checks
-        if (pAlive && aAlive) {
-            checkCollisions()
-        } else {
-            // Starvation or Wall hit during move
-            finalizeGameOver()
-        }
+        if (pAlive && aAlive) checkCollisions()
+        else finalizeGameOver()
 
         recordSnapshot()
     }
-
     // Returns true if still alive after move (checks starvation and walls)
     private fun moveSnake(snake: SnakeEntity): Boolean {
         if (!snake.isAlive) return false
@@ -157,13 +148,14 @@ class SnakePhysics {
     }
 
     private fun finalizeGameOver() {
+        if (isGameOver) return
+
         isGameOver = true
         gameOverReason = when {
             !player.isAlive && !ai.isAlive -> "DRAW"
             !player.isAlive -> "ROBOT WON"
             else -> "YOU WON"
         }
-        if (!isGameOver) SoundManager.playGameOver()
     }
 
     private fun placeFood() {

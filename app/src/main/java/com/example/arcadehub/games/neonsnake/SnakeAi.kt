@@ -20,19 +20,17 @@ object SnakeAi {
     fun getSmartMove(
         me: SnakeEntity,
         enemy: SnakeEntity,
-        foods: List<Point>
+        foods: List<Point>,
+        depth: Int
     ): GridDir {
-        // 1. Setup State
         val grid = LogicGrid.fromState(me.body, enemy.body, foods)
-
-        // 2. Pre-calculate Distances
         val distMap = getFoodDistanceMap(grid, foods)
 
         // 3. Alpha-Beta Search
         val result = alphaBeta(
             grid,
             me, enemy, foods, distMap,
-            SnakeConfig.MAX_SEARCH_DEPTH,
+            depth,
             Double.NEGATIVE_INFINITY,
             Double.POSITIVE_INFINITY,
             true
@@ -40,11 +38,10 @@ object SnakeAi {
 
         // 4. Failsafe
         if (result.move == null) {
+            // Failsafe logic (Floodfill)
             val head = me.head()
             val safeMoves = DIRS.map { (dir, d) ->
-                val nx = head.x + d.x
-                val ny = head.y + d.y
-                Triple(dir, nx, ny)
+                Triple(dir, head.x + d.x, head.y + d.y)
             }.filter { (_, nx, ny) ->
                 grid.isSafe(nx, ny)
             }.map { (dir, nx, ny) ->
@@ -52,11 +49,12 @@ object SnakeAi {
             }.sortedByDescending { it.second }
 
             if (safeMoves.isNotEmpty()) return safeMoves[0].first
-            return GridDir.UP // Death is inevitable
+            return GridDir.UP
         }
 
         return result.move
     }
+
 
     // --- SEARCH ---
     private fun alphaBeta(
