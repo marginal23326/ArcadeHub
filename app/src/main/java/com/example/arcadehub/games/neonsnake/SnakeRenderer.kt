@@ -18,7 +18,9 @@ class SnakeRenderer {
     private val hudTextPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 40f, typeface = Typeface.DEFAULT_BOLD)
     private val barBgPaint = GraphicsUtils.createPaint(Color.DKGRAY)
     private val barFillPaint = Paint().apply { style = Paint.Style.FILL }
-
+    private val healthNumPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 20f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD).apply {
+        setShadowLayer(2f, 0f, 0f, Color.BLACK)
+    }
     private val rect = RectF()
 
     fun draw(canvas: Canvas, physics: SnakePhysics, width: Int, height: Int, highScore: Int) {
@@ -33,13 +35,20 @@ class SnakeRenderer {
         }
     }
 
-    fun drawReplayFrame(canvas: Canvas, snap: GameSnapshot, width: Int, height: Int, physics: SnakePhysics) {
+    fun drawReplayFrame(
+        canvas: Canvas, snap: GameSnapshot, width: Int, height: Int,
+        physics: SnakePhysics, finalScore: Int
+    ) {
+        // Create temp entities for drawing the replay moment
         val p = SnakeEntity(ArrayList(snap.playerBody), GridDir.UP, snap.pScore, snap.pHealth)
         val a = SnakeEntity(ArrayList(snap.aiBody), GridDir.DOWN, snap.aScore, snap.aHealth)
 
+        // Draw the replay frame (HUD inside here will show the dynamic replay score)
         drawInternal(canvas, width, p, a, snap.foods, 0)
-        drawOverlay(canvas, width, height, physics.gameOverReason, snap.pScore, physics.getDifficultyLevel())
 
+        drawOverlay(canvas, width, height, physics.gameOverReason, finalScore, physics.getDifficultyLevel())
+
+        // Replay Text
         GraphicsUtils.createPaint(Color.RED, textSize = 30f, align = Paint.Align.LEFT, typeface = Typeface.DEFAULT_BOLD).also {
             canvas.drawText("REPLAY MODE", 40f, height - 40f, it)
         }
@@ -56,7 +65,7 @@ class SnakeRenderer {
         val cellSize = width.toFloat() / SnakeConfig.COLS
         val gridH = cellSize * SnakeConfig.ROWS
 
-        // Centering vertically if logic height < screen height (likely on 16:9 screen it fits perfectly)
+
         val offsetY = 0f
 
         // Draw Grid
@@ -75,45 +84,61 @@ class SnakeRenderer {
         }
 
         // Draw Snakes
-        drawSnake(canvas, player.body, cellSize, 0f,
-            SnakeConfig.COLOR_P1_HEAD, SnakeConfig.COLOR_P1_BODY, SnakeConfig.COLOR_P1_TAIL)
+        drawSnake(canvas, player.body, cellSize, offsetY, SnakeConfig.COLOR_P1_HEAD, SnakeConfig.COLOR_P1_BODY, SnakeConfig.COLOR_P1_TAIL)
+        drawSnake(canvas, ai.body, cellSize, offsetY, SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY, SnakeConfig.COLOR_AI_TAIL)
 
-        drawSnake(canvas, ai.body, cellSize, 0f,
-            SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY, SnakeConfig.COLOR_AI_TAIL)
-
-        // Draw HUD (Score + Health)
+        // CRITICAL: Draw HUD (Score + Health)
         drawHud(canvas, player, ai, width, gridH, highScore)
     }
 
     private fun drawHud(canvas: Canvas, p: SnakeEntity, a: SnakeEntity, width: Int, gridBottom: Float, highScore: Int) {
-        val y = gridBottom + 50f
-        val barW = 150f
-        val barH = 16f
+        val headerHeight = 70f
+        val y = 45f
 
-        // 1. Player Left
+        val barW = 250f
+        val barH = 24f
+
+        val sideMargin = 250f
+
+        val headerPaint = Paint().apply { color = Color.BLACK; alpha = 180 }
+        canvas.drawRect(0f, 0f, width.toFloat(), headerHeight, headerPaint)
+
+        // --- PLAYER 1 (LEFT) ---
         hudTextPaint.textAlign = Paint.Align.LEFT
         hudTextPaint.color = SnakeConfig.COLOR_P1_HEAD
-        canvas.drawText("P1: ${p.score}", 30f, y, hudTextPaint)
-        drawHealthBar(canvas, 140f, y - 12f, barW, barH, p.health, Color.CYAN)
+        canvas.drawText("P1: ${p.score}", sideMargin, y + 10f, hudTextPaint)
 
-        // 2. BEST SCORE (Centered)
+        // Space for text is 130f, bar follows
+        drawHealthBar(canvas, sideMargin + 130f, y - 12f, barW, barH, p.health, SnakeConfig.COLOR_P1_BODY)
+
+        // --- BEST SCORE (CENTER) ---
         hudTextPaint.textAlign = Paint.Align.CENTER
         hudTextPaint.color = Color.YELLOW
-        canvas.drawText("BEST: $highScore", width / 2f, y, hudTextPaint)
+        canvas.drawText("BEST: $highScore", width / 2f, y + 10f, hudTextPaint)
 
-        // 3. AI Right
+        // --- AI (RIGHT) ---
         hudTextPaint.textAlign = Paint.Align.RIGHT
         hudTextPaint.color = SnakeConfig.COLOR_AI_HEAD
-        canvas.drawText("AI: ${a.score}", width - 30f, y, hudTextPaint)
-        drawHealthBar(canvas, width - 140f - barW, y - 12f, barW, barH, a.health, Color.MAGENTA)
+        canvas.drawText("AI: ${a.score}", width - sideMargin, y + 10f, hudTextPaint)
+
+        // Space for text is 130f, bar is placed to the left of the text
+        drawHealthBar(canvas, width - sideMargin - 130f - barW, y - 12f, barW, barH, a.health, SnakeConfig.COLOR_AI_BODY)
     }
 
 
     private fun drawHealthBar(c: Canvas, x: Float, y: Float, w: Float, h: Float, hp: Int, color: Int) {
+        // Background (Gray)
         c.drawRect(x, y, x + w, y + h, barBgPaint)
+
+        // Foreground (Health Color)
         val fillPct = (hp / 100f).coerceIn(0f, 1f)
         barFillPaint.color = color
         c.drawRect(x, y, x + (w * fillPct), y + h, barFillPaint)
+
+        // Health Number Text (Centered in bar)
+        val cx = x + (w / 2f)
+        val cy = y + (h / 2f) + 8f // approx vertical center
+        c.drawText("$hp", cx, cy, healthNumPaint)
     }
 
     private fun drawSnake(canvas: Canvas, body: List<Point>, cellSize: Float, offY: Float, hCol: Int, bCol: Int, tCol: Int) {

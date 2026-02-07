@@ -15,7 +15,7 @@ class SnakePhysics {
 
     private val inputQueue = ArrayDeque<GridDir>()
     private val historyBuffer = ArrayDeque<GameSnapshot>()
-    private val MAX_HISTORY = 20
+    private val MAX_HISTORY = 10
     private var aiSearchDepth = 6
 
     fun setDifficultyLevel(level: Int) {

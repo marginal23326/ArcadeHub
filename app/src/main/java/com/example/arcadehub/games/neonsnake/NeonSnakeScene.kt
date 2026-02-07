@@ -26,9 +26,10 @@ class NeonSnakeScene : BaseGameScene() {
     private var replayData: List<GameSnapshot> = emptyList()
     private var replayIndex = 0
     private var replayTimer = 0f
-    private val REPLAY_SPEED = 0.5f
+    private val REPLAY_SPEED = 0.85f
 
     override val highScoreKey: String = "SNAKE_HIGHSCORE"
+    private var finalScore = 0
 
     // UI Paints
     private val menuTitlePaint = GraphicsUtils.createPaint(Color.CYAN, textSize = 70f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
@@ -67,9 +68,12 @@ class NeonSnakeScene : BaseGameScene() {
     }
 
     private fun startReplayMode() {
-        isGameOver = true
+        this.isGameOver = true
         SoundManager.playGameOver()
         checkNewHighScore()
+
+        this.finalScore = physics.player.score
+
         replayData = physics.getReplayHistory()
         replayIndex = 0
         currentState = State.REPLAY
@@ -88,7 +92,8 @@ class NeonSnakeScene : BaseGameScene() {
                         replayData[replayIndex],
                         Constants.LOGIC_WIDTH,
                         Constants.LOGIC_HEIGHT,
-                        physics
+                        physics,
+                        finalScore
                     )
                 }
             }
