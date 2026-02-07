@@ -44,3 +44,25 @@ object SnakeConfig {
 
     val COLOR_FOOD = Color.YELLOW
 }
+
+object SnakeStats {
+    fun getWins(level: Int): Int {
+        return com.example.arcadehub.managers.SaveManager.getInt("SNAKE_L${level}_WINS", 0)
+    }
+
+    fun getLosses(level: Int): Int {
+        return com.example.arcadehub.managers.SaveManager.getInt("SNAKE_L${level}_LOSSES", 0)
+    }
+
+    fun recordWin(level: Int) {
+        val key = "SNAKE_L${level}_WINS"
+        val current = com.example.arcadehub.managers.SaveManager.getInt(key, 0)
+        com.example.arcadehub.managers.SaveManager.setInt(key, current + 1)
+    }
+
+    fun recordLoss(level: Int) {
+        val key = "SNAKE_L${level}_LOSSES"
+        val current = com.example.arcadehub.managers.SaveManager.getInt(key, 0)
+        com.example.arcadehub.managers.SaveManager.setInt(key, current + 1)
+    }
+}

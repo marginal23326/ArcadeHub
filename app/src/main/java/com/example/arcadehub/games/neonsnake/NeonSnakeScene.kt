@@ -35,6 +35,7 @@ class NeonSnakeScene : BaseGameScene() {
     private val menuTitlePaint = GraphicsUtils.createPaint(Color.CYAN, textSize = 70f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
     private val menuValPaint = GraphicsUtils.createPaint(Color.YELLOW, textSize = 90f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
     private val menuSubPaint = GraphicsUtils.createPaint(Color.LTGRAY, textSize = 35f, align = Paint.Align.CENTER)
+    private val statsPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 35f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
 
     override fun resetGame() {
         currentState = State.MENU
@@ -71,8 +72,13 @@ class NeonSnakeScene : BaseGameScene() {
         this.isGameOver = true
         SoundManager.playGameOver()
         checkNewHighScore()
-
         this.finalScore = physics.player.score
+
+        if (physics.gameOverReason == "YOU WON") {
+            SnakeStats.recordWin(selectedLevel)
+        } else if (physics.gameOverReason == "ROBOT WON") {
+            SnakeStats.recordLoss(selectedLevel)
+        }
 
         replayData = physics.getReplayHistory()
         replayIndex = 0
@@ -112,14 +118,14 @@ class NeonSnakeScene : BaseGameScene() {
 
         canvas.drawText("ROBOT DIFFICULTY", cx, cy - 120f, menuTitlePaint)
 
-        // Draw Arrows and Level Selector
+        // Draw Arrows and Value
         val showLeft = if (selectedLevel > 1) "<" else " "
         val showRight = if (selectedLevel < 5) ">" else " "
         val label = "$showLeft   LEVEL $selectedLevel   $showRight"
 
         canvas.drawText(label, cx, cy + 20f, menuValPaint)
 
-        // Simple, kid-friendly descriptions
+        // Description
         val description = when (selectedLevel) {
             1 -> "Novice: The robot is still learning."
             2 -> "Skilled: He's getting the hang of it!"
@@ -128,10 +134,17 @@ class NeonSnakeScene : BaseGameScene() {
             5 -> "Grandmaster: The ultimate challenge!"
             else -> ""
         }
-
         canvas.drawText(description, cx, cy + 110f, menuSubPaint)
 
-        // Footer Help Text
+        val wins = SnakeStats.getWins(selectedLevel)
+        val losses = SnakeStats.getLosses(selectedLevel)
+
+        val statColor = if (wins >= losses) Color.GREEN else Color.RED
+        statsPaint.color = statColor
+
+        canvas.drawText("PLAYER WINS: $wins   |   ROBOT WINS: $losses", cx, cy + 200f, statsPaint)
+
+        // Controls
         GraphicsUtils.createPaint(Color.DKGRAY, textSize = 30f, align = Paint.Align.CENTER).also {
             canvas.drawText("LEFT / RIGHT to change  |  CENTER to Play", cx, cy + 300f, it)
         }

@@ -2,6 +2,7 @@ package com.example.arcadehub.managers
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 
 object SaveManager {
     private const val PREFS_NAME = "ArcadeHubPrefs"
@@ -18,7 +19,7 @@ object SaveManager {
     }
 
     fun setInt(key: String, value: Int) {
-        prefs.edit().putInt(key, value).apply()
+        prefs.edit { putInt(key, value) }
     }
 
     fun getBoolean(key: String, default: Boolean = false): Boolean {
@@ -26,7 +27,7 @@ object SaveManager {
     }
 
     fun setBoolean(key: String, value: Boolean) {
-        prefs.edit().putBoolean(key, value).apply()
+        prefs.edit { putBoolean(key, value) }
     }
 
     // --- Helper for High Scores ---
