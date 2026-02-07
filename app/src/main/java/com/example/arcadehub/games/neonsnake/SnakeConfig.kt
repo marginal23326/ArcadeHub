@@ -4,35 +4,46 @@ import android.graphics.Color
 import androidx.core.graphics.toColorInt
 
 object SnakeConfig {
-    // Grid (Optimized for 1920x1080 - 16:9 Ratio)
-    // 48 * 40px = 1920 width
-    // 24 * 40px = 960 height (leaving 120px for HUD)
-    const val TILE_COUNT_X = 32
-    const val TILE_COUNT_Y = 18
+    // --- BOARD SETTINGS ---
+    const val COLS = 16
+    const val ROWS = 9
 
-    // Physics
-    const val GAME_SPEED_SECONDS = 0.28f
+    // Slowed down to compensate for smaller grid and "Grandmaster" feel
+    const val GAME_SPEED_SECONDS = 0.45f
 
-    // AI Weights
-    const val AI_SCORE_TUNNEL_DEATH = -80_000
-    const val AI_SCORE_TRAPPED = -100_000
-    const val AI_SCORE_HEAD_ON_COLLISION = -150_000
-    const val AI_SCORE_SPACE_MULTIPLIER = 20
+    const val INITIAL_HEALTH = 100
+    const val FOOD_COUNT = 2
 
-    const val AI_TUNNEL_FEAR_DISTANCE = 12
+    // --- AI WEIGHTS ---
+    const val MAX_SEARCH_DEPTH = 8
 
-    // Visuals
+    object Scores {
+        const val WIN = 1_000_000_000.0
+        const val LOSS = -1_000_000_000.0
+        const val DRAW = -500_000_000.0
+
+        const val TRAP_DANGER = -1_000_000.0
+        const val HEAD_ON_COLLISION = -750_000.0
+        const val EDGE_PENALTY = -50.0
+
+        const val LENGTH = 1_000.0
+        const val EAT_REWARD = 50_000.0
+        const val AGGRESSION = 100.0
+
+        // Food Curve Constants
+        const val FOOD_CURVE_INTENSITY = 70.0
+        const val FOOD_CURVE_EXPONENT = 8.0
+    }
+
+    // --- VISUALS ---
     val COLOR_BG = "#050505".toColorInt()
-    val COLOR_GRID = "#111111".toColorInt()
+    val COLOR_GRID = "#1a1a1a".toColorInt()
 
-    val COLOR_P1_HEAD = Color.WHITE
-    val COLOR_P1_BODY = Color.CYAN
-    val COLOR_P1_TAIL = "#003344".toColorInt() // Deep dark cyan
+    val COLOR_P1_HEAD = "#00ccff".toColorInt() // Cyan
+    val COLOR_P1_BODY = "#0099cc".toColorInt()
 
-    val COLOR_AI_HEAD = Color.WHITE
-    val COLOR_AI_BODY = "#FF0055".toColorInt() // Neon Pink
-    val COLOR_AI_TAIL = "#440011".toColorInt() // Deep dark maroon
+    val COLOR_AI_HEAD = "#ff0055".toColorInt() // Pink/Red
+    val COLOR_AI_BODY = "#cc0044".toColorInt()
 
     val COLOR_FOOD = Color.YELLOW
-    val COLOR_BEST_TEXT = Color.LTGRAY
 }

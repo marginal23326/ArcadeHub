@@ -1,331 +1,326 @@
 package com.example.arcadehub.games.neonsnake
 
-import com.example.arcadehub.games.neonsnake.SnakeConfig.TILE_COUNT_X
-import com.example.arcadehub.games.neonsnake.SnakeConfig.TILE_COUNT_Y
 import kotlin.math.abs
+import kotlin.math.atan
+import kotlin.math.max
+import kotlin.math.min
 
-// --- INTERFACE ---
-interface SnakeBrain {
-    fun getName(): String
-    fun getMove(gameState: SnakePhysics): GridDir
-}
+object SnakeAi {
 
-// --- CONFIGURATION DATA ---
-data class BrainConfig(
-    val name: String,
-    val suffocationPenaltyWeight: Double, // Weight for getting trapped
-    val headOnFear: Double,               // Penalty for head-on collision risk (when smaller)
-    val headOnAggression: Double,         // Bonus for head-on collision risk (when larger)
-    val voronoiWeight: Double,            // Weight for territory control
-    val hunterCrowdingWeight: Double,     // Bonus for getting closer to enemy head (0.0 = disabled)
-    val foodGreedMultiplier: Double       // Multiplier for food value when larger (1.0 = normal, <1.0 = ignore food)
-)
+    val DIRS = listOf(
+        GridDir.UP to Point(0, -1),
+        GridDir.DOWN to Point(0, 1),
+        GridDir.LEFT to Point(-1, 0),
+        GridDir.RIGHT to Point(1, 0)
+    )
 
-// --- CONSTANTS ---
-private object AiWeights {
-    const val WIN = 1_000_000.0
-    const val LOSS = -1_000_000.0
-}
+    data class AiResult(val move: GridDir?, val score: Double)
 
-// --- BASE CLASS (LOGIC ENGINE) ---
-abstract class BaseSnakeBrain(private val config: BrainConfig) : SnakeBrain {
+    // --- MAIN ENTRY POINT ---
+    fun getSmartMove(
+        me: SnakeEntity,
+        enemy: SnakeEntity,
+        foods: List<Point>
+    ): GridDir {
+        // 1. Setup State
+        val grid = LogicGrid.fromState(me.body, enemy.body, foods)
 
-    override fun getName() = config.name
+        // 2. Pre-calculate Distances
+        val distMap = getFoodDistanceMap(grid, foods)
 
-    protected fun evaluate(state: SimState, depth: Int): Double {
-        if (state.aBody.isEmpty()) return AiWeights.LOSS - depth
-        if (state.pBody.isEmpty()) return AiWeights.WIN + depth
+        // 3. Alpha-Beta Search
+        val result = alphaBeta(
+            grid,
+            me, enemy, foods, distMap,
+            SnakeConfig.MAX_SEARCH_DEPTH,
+            Double.NEGATIVE_INFINITY,
+            Double.POSITIVE_INFINITY,
+            true
+        )
 
-        var score = 0.0
-        val aHead = state.aBody[0]
-        val pHead = state.pBody[0]
+        // 4. Failsafe
+        if (result.move == null) {
+            val head = me.head()
+            val safeMoves = DIRS.map { (dir, d) ->
+                val nx = head.x + d.x
+                val ny = head.y + d.y
+                Triple(dir, nx, ny)
+            }.filter { (_, nx, ny) ->
+                grid.isSafe(nx, ny)
+            }.map { (dir, nx, ny) ->
+                dir to floodFill(grid, nx, ny, 100)
+            }.sortedByDescending { it.second }
 
-        // 1. SUFFOCATION CHECK
-        val requiredSpace = state.aBody.size + 2
-        val availableSpace = getReachableSpace(state, true, requiredSpace)
-
-        if (availableSpace < requiredSpace) {
-            // Apply configured penalty weight
-            return AiWeights.LOSS + (availableSpace * config.suffocationPenaltyWeight)
+            if (safeMoves.isNotEmpty()) return safeMoves[0].first
+            return GridDir.UP // Death is inevitable
         }
 
-        // 2. Head-on Danger
-        val dEnemy = dist(aHead, pHead)
-        if (dEnemy <= 1) {
-            if (state.aBody.size <= state.pBody.size) {
-                score -= config.headOnFear
+        return result.move
+    }
+
+    // --- SEARCH ---
+    private fun alphaBeta(
+        grid: LogicGrid,
+        me: SnakeEntity, enemy: SnakeEntity, foods: List<Point>,
+        distMap: IntArray,
+        depth: Int,
+        alpha: Double, beta: Double,
+        isMaximizing: Boolean
+    ): AiResult {
+        if (me.health <= 0 || me.body.isEmpty()) return AiResult(null, SnakeConfig.Scores.LOSS - depth)
+        if (enemy.health <= 0 || enemy.body.isEmpty()) return AiResult(null, SnakeConfig.Scores.WIN + depth)
+        if (depth == 0) return AiResult(null, evaluate(grid, me, enemy, foods, distMap))
+
+        val currentSnake = if (isMaximizing) me else enemy
+        val opponentSnake = if (isMaximizing) enemy else me
+        val head = currentSnake.head()
+
+        val validMoves = getSafeNeighbors(grid, head, currentSnake)
+
+        if (validMoves.isEmpty()) {
+            val score = if (isMaximizing) SnakeConfig.Scores.LOSS - depth else SnakeConfig.Scores.WIN + depth
+            return AiResult(null, score)
+        }
+
+        var bestMove: GridDir? = validMoves[0].first
+        var bestScore = if (isMaximizing) Double.NEGATIVE_INFINITY else Double.POSITIVE_INFINITY
+        var currAlpha = alpha
+        var currBeta = beta
+
+        for ((dir, pos) in validMoves) {
+            var collisionPenalty = 0.0
+
+            // Head-on collision check
+            if (isMaximizing) {
+                val oppHead = opponentSnake.head()
+                val dist = abs(pos.x - oppHead.x) + abs(pos.y - oppHead.y)
+                if (dist == 1 && opponentSnake.body.size >= currentSnake.body.size) {
+                    collisionPenalty = SnakeConfig.Scores.HEAD_ON_COLLISION
+                }
+            }
+
+            // Simulate Move
+            val newGrid = grid.clone()
+
+            val ateFood = grid[pos.x, pos.y] == 1
+
+            // Construct new body for simulation
+            val newBody = ArrayList<Point>()
+            newBody.add(pos)
+            newBody.addAll(currentSnake.body)
+
+            if (!ateFood) {
+                val tail = newBody.removeAt(newBody.size - 1)
+                // Clear tail from grid IF it's not the new head (loop logic)
+                if (tail != pos) newGrid[tail.x, tail.y] = 0
+            }
+
+            // Set new head on grid
+            newGrid[pos.x, pos.y] = if (isMaximizing) 2 else 3
+
+            // Create Next State Entities
+            val nextMe = if (isMaximizing)
+                SnakeEntity(newBody, dir, 0, if(ateFood) 100 else me.health - 1)
+            else me
+
+            val nextEnemy = if (!isMaximizing)
+                SnakeEntity(newBody, dir, 0, if(ateFood) 100 else enemy.health - 1)
+            else enemy
+
+            val nextFoods = if (ateFood) foods.filter { it != pos } else foods
+
+            // Recurse
+            val result = alphaBeta(newGrid, nextMe, nextEnemy, nextFoods, distMap, depth - 1, currAlpha, currBeta, !isMaximizing)
+
+            var modifiedScore = result.score
+            if (isMaximizing) {
+                if (collisionPenalty != 0.0) modifiedScore = min(modifiedScore, collisionPenalty)
+                if (ateFood) modifiedScore += SnakeConfig.Scores.EAT_REWARD
+
+                if (modifiedScore > bestScore) {
+                    bestScore = modifiedScore
+                    bestMove = dir
+                }
+                currAlpha = max(currAlpha, bestScore)
             } else {
-                score += config.headOnAggression
+                if (ateFood) modifiedScore -= SnakeConfig.Scores.EAT_REWARD
+
+                if (modifiedScore < bestScore) {
+                    bestScore = modifiedScore
+                    bestMove = dir
+                }
+                currBeta = min(currBeta, bestScore)
+            }
+
+            if (currBeta <= currAlpha) break
+        }
+
+        return AiResult(bestMove, bestScore)
+    }
+
+    private fun getSafeNeighbors(grid: LogicGrid, head: Point, snake: SnakeEntity): List<Pair<GridDir, Point>> {
+        val moves = ArrayList<Pair<GridDir, Point>>()
+
+        // Tail chasing logic
+        val tail = snake.body.last()
+        val isTailStacked = snake.body.size > 1 && snake.body[snake.body.size-2] == tail
+
+        for ((dir, d) in DIRS) {
+            val nx = head.x + d.x
+            val ny = head.y + d.y
+
+            var isSafe = grid.isSafe(nx, ny)
+
+            // Tail override
+            if (!isSafe && nx == tail.x && ny == tail.y) {
+                // If we are about to eat food, tail doesn't move, so it's NOT safe
+                val isEating = grid[nx, ny] == 1
+                if (!isTailStacked && !isEating) isSafe = true
+            }
+
+            if (isSafe) moves.add(dir to Point(nx, ny))
+        }
+        return moves
+    }
+
+    // --- HEURISTICS ---
+    private fun evaluate(
+        grid: LogicGrid,
+        me: SnakeEntity, enemy: SnakeEntity,
+        foods: List<Point>, distMap: IntArray
+    ): Double {
+        var score = 0.0
+
+        // 1. Length
+        score += me.body.size * SnakeConfig.Scores.LENGTH
+
+        // 2. My Space (FloodFill)
+        val myHead = me.head()
+        val mySpace = floodFill(grid, myHead.x, myHead.y, max(50, me.body.size * 2))
+
+        if (mySpace < me.body.size) {
+            score += SnakeConfig.Scores.TRAP_DANGER * (10.0 / (mySpace + 1))
+        } else {
+            score += mySpace * 5
+        }
+
+        // 3. Enemy Space (Control)
+        val enemyHead = enemy.head()
+        val enemySpace = floodFill(grid, enemyHead.x, enemyHead.y, 100)
+
+        if (enemySpace < enemy.body.size) {
+            score += 200_000.0 // Enemy Trapped Bonus
+        } else {
+            score -= (enemySpace * 100.0) // Squeeze them
+        }
+
+        // 4. Kill Pressure
+        val distToOpp = manhattan(myHead, enemyHead)
+        if (distToOpp == 1 && me.body.size > enemy.body.size) {
+            score += 150_000.0
+        }
+
+        // 5. Food (The "Rope" Formula)
+        if (foods.isNotEmpty()) {
+            var closestDist = 9999
+            // Use pre-calculated map if valid for head pos, otherwise manual manhattan
+            if (myHead.x in 0 until grid.width && myHead.y in 0 until grid.height) {
+                val idx = myHead.y * grid.width + myHead.x
+                val mapDist = distMap[idx]
+                if (mapDist < 1000) closestDist = mapDist
+            }
+
+            if (closestDist == 9999) {
+                // Fallback if map failed or unreachable
+                foods.forEach { closestDist = min(closestDist, manhattan(myHead, it)) }
+            }
+
+            if (closestDist < 1000) {
+                val rope = me.health - closestDist
+                // Curve Formula: Intensity * atan(rope / exponent)
+                val curve = SnakeConfig.Scores.FOOD_CURVE_INTENSITY *
+                        atan(rope / SnakeConfig.Scores.FOOD_CURVE_EXPONENT)
+                score += curve
+            } else {
+                score += SnakeConfig.Scores.LOSS / 2
             }
         }
 
-        // 3. Voronoi (Territory)
-        score += getVoronoiScore(state) * config.voronoiWeight
-
-        // 4. Hunter Mode (Crowding)
-        // If configured (weight > 0) and we are larger, try to get closer
-        if (config.hunterCrowdingWeight > 0 && state.aBody.size > state.pBody.size) {
-            score -= (dEnemy * config.hunterCrowdingWeight)
-        }
-
-        // 5. Food & Eating
-        if (state.aiAte) score += 20_000.0
-        if (state.food.x != -1) {
-            val dFood = dist(aHead, state.food)
-            val dEnemyFood = dist(pHead, state.food)
-
-            var foodValue = ((TILE_COUNT_X + TILE_COUNT_Y) - dFood) * 50.0
-
-            // Apply Greed Multiplier (Passive = 1.0, Hunter = 0.65)
-            if (state.aBody.size > state.pBody.size) {
-                foodValue *= config.foodGreedMultiplier
-            }
-
-            // Punish chasing lost causes
-            if (dEnemyFood <= dFood && state.pBody.size >= state.aBody.size) {
-                foodValue = -500.0
-            }
-
-            score += foodValue
+        // 6. Aggression
+        if (me.body.size > enemy.body.size + 1) {
+            score -= (distToOpp * SnakeConfig.Scores.AGGRESSION)
         }
 
         return score
     }
 
-    // --- DECISION LOGIC ---
-    override fun getMove(gameState: SnakePhysics): GridDir {
-        val state = SimState(gameState)
-        val pPredX = state.pBody.first().x + state.pDir.x
-        val pPredY = state.pBody.first().y + state.pDir.y
+    // --- PATHFINDING ---
+    private fun getFoodDistanceMap(grid: LogicGrid, foods: List<Point>): IntArray {
+        val distMap = IntArray(grid.width * grid.height) { 1000 }
+        val queue = ArrayDeque<Triple<Int, Int, Int>>()
 
-        val currentAiLen = state.aBody.size
-        val currentPlayerLen = state.pBody.size
-
-        var bestMove = state.aDir
-        var bestVal = Double.NEGATIVE_INFINITY
-
-        val moves = listOf(GridDir.UP, GridDir.DOWN, GridDir.LEFT, GridDir.RIGHT).filter { d ->
-            val head = state.aBody[0]
-            val neck = if (state.aBody.size > 1) state.aBody[1] else null
-            !(neck != null && head.x + d.x == neck.x && head.y + d.y == neck.y)
-        }.sortedBy { d ->
-            val nx = state.aBody[0].x + d.x
-            val ny = state.aBody[0].y + d.y
-            abs(nx - state.food.x) + abs(ny - state.food.y)
-        }
-
-        for (move in moves) {
-            val nextState = state.clone()
-            nextState.applyMove(isAi = true, move = move)
-
-            var value: Double
-
-            if (nextState.aBody.isEmpty()) {
-                value = AiWeights.LOSS
-            } else {
-                val myHead = nextState.aBody[0]
-                val isDirectCollision = (myHead.x == pPredX && myHead.y == pPredY)
-                val mySpace = getReachableSpace(nextState, true, currentAiLen + 2)
-                val enemySpace = getReachableSpace(nextState, false, currentPlayerLen + 1)
-
-                if (isDirectCollision && currentPlayerLen >= currentAiLen) {
-                    value = AiWeights.LOSS
-                } else if (mySpace < currentAiLen) {
-                    value = AiWeights.LOSS + (mySpace * 100)
-                } else if (enemySpace < currentPlayerLen) {
-                    value = AiWeights.WIN + mySpace
-                } else if (playerCanCaptureAiHead(nextState) && currentPlayerLen >= currentAiLen) {
-                    value = -500_000.0
-                } else {
-                    value = minimax(nextState, 3, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, false)
-                }
-            }
-
-            if (value > bestVal) {
-                bestVal = value
-                bestMove = move
+        foods.forEach {
+            val idx = it.y * grid.width + it.x
+            if (idx in distMap.indices) {
+                distMap[idx] = 0
+                queue.add(Triple(it.x, it.y, 0))
             }
         }
-        return bestMove
-    }
 
-    private fun minimax(state: SimState, depth: Int, alpha: Double, beta: Double, isMaximizing: Boolean): Double {
-        if (state.aBody.isEmpty()) return AiWeights.LOSS - depth
-        if (state.pBody.isEmpty()) return AiWeights.WIN + depth
-        if (depth == 0) return evaluate(state, depth)
+        while (queue.isNotEmpty()) {
+            val (cx, cy, d) = queue.removeFirst()
 
-        var currAlpha = alpha
-        var currBeta = beta
+            val neighbors = listOf(0 to -1, 0 to 1, -1 to 0, 1 to 0)
+            for ((dx, dy) in neighbors) {
+                val nx = cx + dx
+                val ny = cy + dy
 
-        // Initialize based on who is playing
-        var bestVal = if (isMaximizing) Double.NEGATIVE_INFINITY else Double.POSITIVE_INFINITY
-        val activeBody = if (isMaximizing) state.aBody else state.pBody
-
-        val moves = listOf(GridDir.UP, GridDir.DOWN, GridDir.LEFT, GridDir.RIGHT)
-
-        for (move in moves) {
-            // 1. Check 180 turn (Neck check)
-            val head = activeBody[0]
-            if (activeBody.size > 1 && head.x + move.x == activeBody[1].x && head.y + move.y == activeBody[1].y) continue
-
-            // 2. Simulate Move
-            val nextState = state.clone()
-            // isMaximizing is true for AI, false for Player, which matches the isAi parameter
-            nextState.applyMove(isAi = isMaximizing, move = move)
-
-            // 3. Recurse (Flip turn)
-            val eval = minimax(nextState, depth - 1, currAlpha, currBeta, !isMaximizing)
-
-            // 4. Update Alpha/Beta
-            if (isMaximizing) {
-                bestVal = maxOf(bestVal, eval)
-                currAlpha = maxOf(currAlpha, eval)
-                if (currBeta <= currAlpha) break
-            } else {
-                bestVal = minOf(bestVal, eval)
-                currBeta = minOf(currBeta, eval)
-                if (currBeta <= currAlpha) break
-            }
-        }
-        return bestVal
-    }
-
-    // --- UTILS ---
-    private fun getVoronoiScore(state: SimState): Int {
-        if (state.pBody.isEmpty()) return 1000
-        if (state.aBody.isEmpty()) return -1000
-
-        val grid = IntArray(TILE_COUNT_X * TILE_COUNT_Y)
-        val mark = { body: List<Point> -> for (p in body) if (p.x in 0 until TILE_COUNT_X && p.y in 0 until TILE_COUNT_Y) grid[p.y * TILE_COUNT_X + p.x] = 3 }
-        mark(state.pBody); mark(state.aBody)
-
-        val q = ArrayDeque<Triple<Int, Int, Int>>()
-        if(state.aBody.isNotEmpty()) q.add(Triple(state.aBody[0].x, state.aBody[0].y, 1))
-        if(state.pBody.isNotEmpty()) q.add(Triple(state.pBody[0].x, state.pBody[0].y, 2))
-
-        var aiCount = 0; var pCount = 0
-        while (q.isNotEmpty()) {
-            val (cx, cy, owner) = q.removeFirst()
-            val idx = cy * TILE_COUNT_X + cx
-            if (idx !in grid.indices || (grid[idx] != 0 && grid[idx] != owner)) continue
-            if (grid[idx] == 0) {
-                grid[idx] = owner
-                if (owner == 1) aiCount++ else pCount++
-                listOf(0 to -1, 0 to 1, -1 to 0, 1 to 0).forEach { (dx, dy) ->
-                    val nx = cx + dx; val ny = cy + dy
-                    if (nx in 0 until TILE_COUNT_X && ny in 0 until TILE_COUNT_Y && grid[ny * TILE_COUNT_X + nx] == 0) q.add(Triple(nx, ny, owner))
+                if (nx in 0 until grid.width && ny in 0 until grid.height) {
+                    val idx = ny * grid.width + nx
+                    // If not visited AND safe
+                    if (distMap[idx] == 1000 && grid.isSafe(nx, ny)) {
+                        distMap[idx] = d + 1
+                        queue.add(Triple(nx, ny, d + 1))
+                    }
                 }
             }
         }
-        return aiCount - pCount
+        return distMap
     }
 
-    private fun getReachableSpace(state: SimState, isAi: Boolean, maxCheck: Int): Int {
-        val head = if (isAi) state.aBody[0] else state.pBody[0]
-        val grid = BooleanArray(TILE_COUNT_X * TILE_COUNT_Y)
-        val mark = { body: List<Point> -> for (i in 0 until body.size - 1) { val p = body[i]; if (p.x in 0 until TILE_COUNT_X && p.y in 0 until TILE_COUNT_Y) grid[p.y * TILE_COUNT_X + p.x] = true } }
-        mark(state.aBody); mark(state.pBody)
+    // --- FLOODFILL ---
+    private fun floodFill(grid: LogicGrid, sx: Int, sy: Int, maxDepth: Int): Int {
+        val visited = BooleanArray(grid.width * grid.height)
+        val queue = ArrayDeque<Point>()
 
-        val queue = IntArray(TILE_COUNT_X * TILE_COUNT_Y)
-        var qHead = 0; var qTail = 0; var count = 0
-        val startIdx = head.y * TILE_COUNT_X + head.x
-        if (startIdx in grid.indices) { grid[startIdx] = true; queue[qHead++] = startIdx }
+        queue.add(Point(sx, sy))
+        visited[sy * grid.width + sx] = true
+        var count = 0
 
-        while (qHead > qTail) {
-            if (count >= maxCheck) return maxCheck
-            val curr = queue[qTail++]; count++
-            val cx = curr % TILE_COUNT_X; val cy = curr / TILE_COUNT_X
-            listOf(0 to -1, 0 to 1, -1 to 0, 1 to 0).forEach { (dx, dy) ->
-                val nx = cx + dx; val ny = cy + dy
-                val nIdx = ny * TILE_COUNT_X + nx
-                if (nx in 0 until TILE_COUNT_X && ny in 0 until TILE_COUNT_Y && !grid[nIdx]) { grid[nIdx] = true; queue[qHead++] = nIdx }
+        // Include start node in count
+        count++
+
+        while(queue.isNotEmpty()) {
+            if (count >= maxDepth) return count
+            val (cx, cy) = queue.removeFirst()
+
+            val neighbors = listOf(0 to -1, 0 to 1, -1 to 0, 1 to 0)
+            for ((dx, dy) in neighbors) {
+                val nx = cx + dx
+                val ny = cy + dy
+
+                if (nx in 0 until grid.width && ny in 0 until grid.height) {
+                    val idx = ny * grid.width + nx
+                    if (!visited[idx] && grid.isSafe(nx, ny)) {
+                        visited[idx] = true
+                        queue.add(Point(nx, ny))
+                        count++
+                    }
+                }
             }
         }
         return count
     }
 
-    private fun playerCanCaptureAiHead(state: SimState): Boolean {
-        if (state.pBody.isEmpty() || state.aBody.isEmpty()) return false
-        val pHead = state.pBody[0]
-        val pNeck = if (state.pBody.size > 1) state.pBody[1] else null
-        val target = state.aBody[0]
-        return listOf(GridDir.UP, GridDir.DOWN, GridDir.LEFT, GridDir.RIGHT).any { d ->
-            val nx = pHead.x + d.x; val ny = pHead.y + d.y
-            (pNeck == null || nx != pNeck.x || ny != pNeck.y) && nx == target.x && ny == target.y
-        }
-    }
-
-    protected fun dist(p1: Point, p2: Point) = abs(p1.x - p2.x) + abs(p1.y - p2.y)
-}
-
-// --- CONCRETE BRAINS ---
-
-class PassiveBrain : BaseSnakeBrain(
-    BrainConfig(
-        name = "STANDARD (PASSIVE)",
-        suffocationPenaltyWeight = 100.0,
-        headOnFear = 50_000.0,
-        headOnAggression = 20_000.0,
-        voronoiWeight = 100.0,
-        hunterCrowdingWeight = 0.0, // Disabled
-        foodGreedMultiplier = 1.0   // Normal food value
-    )
-)
-
-class HunterBrain : BaseSnakeBrain(
-    BrainConfig(
-        name = "HUNTER (AGGRESSIVE)",
-        suffocationPenaltyWeight = 1000.0,
-        headOnFear = 500_000.0,
-        headOnAggression = 50_000.0,
-        voronoiWeight = 500.0,
-        hunterCrowdingWeight = 200.0, // Active
-        foodGreedMultiplier = 0.65    // Care less about food when big
-    )
-)
-
-// --- SIMULATION STATE ---
-class SimState(
-    var pBody: ArrayList<Point>,
-    var aBody: ArrayList<Point>,
-    var pDir: GridDir,
-    var aDir: GridDir,
-    var food: Point,
-    var aiAte: Boolean = false
-) {
-    constructor(phys: SnakePhysics) : this(
-        ArrayList(phys.player.body),
-        ArrayList(phys.ai.body),
-        phys.player.dir,
-        phys.ai.dir,
-        phys.food
-    )
-
-    fun clone(): SimState {
-        return SimState(ArrayList(pBody), ArrayList(aBody), pDir, aDir, food, aiAte)
-    }
-
-    fun applyMove(isAi: Boolean, move: GridDir) {
-        val body = if (isAi) aBody else pBody
-        if (body.isEmpty()) return
-
-        val head = body[0]
-        val nx = head.x + move.x
-        val ny = head.y + move.y
-
-        if (nx !in 0 until TILE_COUNT_X || ny !in 0 until TILE_COUNT_Y) { body.clear(); return }
-        if (pBody.any { it.x == nx && it.y == ny } || aBody.any { it.x == nx && it.y == ny }) { body.clear(); return }
-
-        val newHead = Point(nx, ny)
-        body.add(0, newHead)
-
-        if (nx == food.x && ny == food.y) {
-            food = Point(-1, -1)
-            if (isAi) aiAte = true
-        } else {
-            body.removeAt(body.size - 1)
-        }
-
-        if (isAi) aDir = move else pDir = move
-    }
+    private fun manhattan(p1: Point, p2: Point) = abs(p1.x - p2.x) + abs(p1.y - p2.y)
 }

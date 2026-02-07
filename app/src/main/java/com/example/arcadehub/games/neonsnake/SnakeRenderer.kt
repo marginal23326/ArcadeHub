@@ -15,124 +15,127 @@ class SnakeRenderer {
     }
 
     private val snakePaint = Paint().apply { isAntiAlias = true }
-
     private val hudTextPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 40f, typeface = Typeface.DEFAULT_BOLD)
-    private val bestScorePaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_BEST_TEXT, textSize = 35f, align = Paint.Align.CENTER)
+    private val barBgPaint = GraphicsUtils.createPaint(Color.DKGRAY)
+    private val barFillPaint = Paint().apply { style = Paint.Style.FILL }
 
     private val rect = RectF()
 
     fun draw(canvas: Canvas, physics: SnakePhysics, width: Int, height: Int, highScore: Int) {
         drawInternal(
-            canvas, width, highScore,
-            physics.player.body, physics.ai.body, physics.food,
-            physics.player.score, physics.ai.score
+            canvas, width,
+            physics.player, physics.ai, physics.foods
         )
 
-        // Draw Game Over Overlay here if needed, or in Scene
         if (physics.isGameOver) {
-            drawGameOverOverlay(canvas, width, height, physics)
+            drawOverlay(canvas, width, height, physics.gameOverReason, physics.player.score)
         }
     }
 
-    fun drawReplayFrame(canvas: Canvas, snapshot: GameSnapshot, width: Int, height: Int, highScore: Int, physics: SnakePhysics) {
-        drawInternal(
-            canvas, width, highScore,
-            snapshot.playerBody, snapshot.aiBody, snapshot.food,
-            snapshot.pScore, snapshot.aScore
-        )
+    fun drawReplayFrame(canvas: Canvas, snap: GameSnapshot, width: Int, height: Int, physics: SnakePhysics) {
+        // Create temp entities for drawing
+        val p = SnakeEntity(ArrayList(snap.playerBody), GridDir.UP, snap.pScore, snap.pHealth)
+        val a = SnakeEntity(ArrayList(snap.aiBody), GridDir.DOWN, snap.aScore, snap.aHealth)
 
-        // Force draw the overlay on top of the replay
-        drawGameOverOverlay(canvas, width, height, physics)
+        drawInternal(canvas, width, p, a, snap.foods)
+        drawOverlay(canvas, width, height, physics.gameOverReason, snap.pScore)
 
         GraphicsUtils.createPaint(Color.RED, textSize = 30f, align = Paint.Align.LEFT, typeface = Typeface.DEFAULT_BOLD).also {
-            canvas.drawText("🔴 REPLAY", 40f, height - 40f, it)
+            canvas.drawText("REPLAY MODE", 40f, height - 40f, it)
         }
     }
 
     private fun drawInternal(
-        canvas: Canvas, width: Int, highScore: Int,
-        pBody: List<Point>, aBody: List<Point>, food: Point,
-        pScore: Int, aScore: Int
+        canvas: Canvas, width: Int,
+        player: SnakeEntity, ai: SnakeEntity, foods: List<Point>
     ) {
         canvas.drawColor(SnakeConfig.COLOR_BG)
 
-        val cellSize = width.toFloat() / SnakeConfig.TILE_COUNT_X
-        val gridW = cellSize * SnakeConfig.TILE_COUNT_X
-        val gridH = cellSize * SnakeConfig.TILE_COUNT_Y
-        val hudY = 60f
+        // 16x9 Aspect Ratio setup
+        val cellSize = width.toFloat() / SnakeConfig.COLS
+        val gridH = cellSize * SnakeConfig.ROWS
 
-        // HUD
-        hudTextPaint.textAlign = Paint.Align.LEFT
-        hudTextPaint.color = Color.CYAN
-        canvas.drawText("PLAYER: $pScore", 30f, hudY, hudTextPaint)
+        // Centering vertically if logic height < screen height (likely on 16:9 screen it fits perfectly)
+        val offsetY = 0f
 
-        canvas.drawText("BEST: $highScore", width / 2f, hudY, bestScorePaint)
-
-        hudTextPaint.textAlign = Paint.Align.RIGHT
-        hudTextPaint.color = SnakeConfig.COLOR_AI_BODY
-        canvas.drawText("ROBOT: $aScore", width - 30f, hudY, hudTextPaint)
-
-        // Grid
-        for (i in 0..SnakeConfig.TILE_COUNT_X) {
+        // Draw Grid
+        for (i in 0..SnakeConfig.COLS) {
             val x = i * cellSize
-            canvas.drawLine(x, 0f, x, gridH, gridPaint)
+            canvas.drawLine(x, offsetY, x, offsetY + gridH, gridPaint)
         }
-        for (i in 0..SnakeConfig.TILE_COUNT_Y) {
-            val y = i * cellSize
-            canvas.drawLine(0f, y, gridW, y, gridPaint)
+        for (i in 0..SnakeConfig.ROWS) {
+            val y = offsetY + i * cellSize
+            canvas.drawLine(0f, y, width.toFloat(), y, gridPaint)
         }
 
-        // Food
-        drawCell(canvas, food.x, food.y, cellSize, foodPaint, isHead = true, shrink = 0f)
+        // Draw Foods
+        foods.forEach { f ->
+            drawCell(canvas, f.x, f.y, cellSize, offsetY, foodPaint, true, 0f)
+        }
 
-        // 2. NON-REPETITIVE CALLS
-        drawSnake(canvas, pBody, cellSize, SnakeConfig.COLOR_P1_HEAD, SnakeConfig.COLOR_P1_BODY, SnakeConfig.COLOR_P1_TAIL)
-        drawSnake(canvas, aBody, cellSize, SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY, SnakeConfig.COLOR_AI_TAIL)
+        // Draw Snakes
+        drawSnake(canvas, player.body, cellSize, offsetY, SnakeConfig.COLOR_P1_HEAD, SnakeConfig.COLOR_P1_BODY)
+        drawSnake(canvas, ai.body, cellSize, offsetY, SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY)
+
+        // Draw HUD (Score + Health)
+        drawHud(canvas, player, ai, width, gridH)
     }
 
-    private fun drawGameOverOverlay(canvas: Canvas, width: Int, height: Int, physics: SnakePhysics) {
-        GraphicsUtils.drawGameOverMenu(
-            canvas, width, height,
-            title = physics.gameOverReason,
-            scoreMsg = "SCORE: ${physics.player.score}",
-            subMsg = "OPPONENT: ${physics.getBrainName()}",
-            footerMsg = "CENTER to Reboot | BACK to Menu"
-        )
+    private fun drawHud(canvas: Canvas, p: SnakeEntity, a: SnakeEntity, width: Int, gridBottom: Float) {
+        val y = gridBottom + 50f
+        val barW = 200f
+        val barH = 20f
+
+        // Player Left
+        hudTextPaint.textAlign = Paint.Align.LEFT
+        hudTextPaint.color = SnakeConfig.COLOR_P1_HEAD
+        canvas.drawText("P1: ${p.score}", 30f, y, hudTextPaint)
+        drawHealthBar(canvas, 160f, y - 15f, barW, barH, p.health, Color.CYAN)
+
+        // AI Right
+        hudTextPaint.textAlign = Paint.Align.RIGHT
+        hudTextPaint.color = SnakeConfig.COLOR_AI_HEAD
+        canvas.drawText("AI: ${a.score}", width - 30f, y, hudTextPaint)
+        drawHealthBar(canvas, width - 160f - barW, y - 15f, barW, barH, a.health, Color.MAGENTA)
     }
 
-    private fun drawSnake(canvas: Canvas, body: List<Point>, cellSize: Float, hCol: Int, bCol: Int, tCol: Int) {
+    private fun drawHealthBar(c: Canvas, x: Float, y: Float, w: Float, h: Float, hp: Int, color: Int) {
+        c.drawRect(x, y, x + w, y + h, barBgPaint)
+        val fillPct = (hp / 100f).coerceIn(0f, 1f)
+        barFillPaint.color = color
+        c.drawRect(x, y, x + (w * fillPct), y + h, barFillPaint)
+    }
+
+    private fun drawSnake(canvas: Canvas, body: List<Point>, cellSize: Float, offY: Float, hCol: Int, bCol: Int) {
         body.forEachIndexed { index, point ->
             val isHead = index == 0
+            snakePaint.color = if (isHead) hCol else bCol
+            if (isHead) snakePaint.setShadowLayer(20f, 0f, 0f, hCol) else snakePaint.clearShadowLayer()
 
-            // Calculate Color Gradient
-            snakePaint.color = if (isHead) hCol else lerpColor(bCol, tCol, index.toFloat() / body.size)
-
-            // Apply Glow to head only
-            if (isHead) snakePaint.setShadowLayer(15f, 0f, 0f, Color.WHITE) else snakePaint.clearShadowLayer()
-
-            // Calculate Tapering (Tail is 20% smaller than head)
-            val shrink = if (isHead) 0f else (index.toFloat() / body.size) * (cellSize * 0.2f)
-
-            drawCell(canvas, point.x, point.y, cellSize, snakePaint, isHead, shrink)
+            val shrink = if (isHead) 0f else (index.toFloat() / body.size) * (cellSize * 0.25f)
+            drawCell(canvas, point.x, point.y, cellSize, offY, snakePaint, isHead, shrink)
         }
     }
 
-    private fun drawCell(canvas: Canvas, gx: Int, gy: Int, cellSize: Float, paint: Paint, isHead: Boolean, shrink: Float) {
-        val padding = 2f + (shrink / 2f)
+    private fun drawCell(c: Canvas, gx: Int, gy: Int, size: Float, offY: Float, paint: Paint, isHead: Boolean, shrink: Float) {
+        val pad = 4f + shrink
         rect.set(
-            gx * cellSize + padding,
-            gy * cellSize + padding,
-            (gx + 1) * cellSize - padding,
-            (gy + 1) * cellSize - padding
+            gx * size + pad,
+            offY + gy * size + pad,
+            (gx + 1) * size - pad,
+            offY + (gy + 1) * size - pad
         )
-        val radius = if (isHead) 12f else 6f
-        canvas.drawRoundRect(rect, radius, radius, paint)
+        val r = if (isHead) 16f else 8f
+        c.drawRoundRect(rect, r, r, paint)
     }
 
-    private fun lerpColor(s: Int, e: Int, f: Float): Int {
-        val r = (Color.red(s) + (Color.red(e) - Color.red(s)) * f).toInt()
-        val g = (Color.green(s) + (Color.green(e) - Color.green(s)) * f).toInt()
-        val b = (Color.blue(s) + (Color.blue(e) - Color.blue(s)) * f).toInt()
-        return Color.rgb(r, g, b)
+    private fun drawOverlay(canvas: Canvas, w: Int, h: Int, title: String, score: Int) {
+        GraphicsUtils.drawGameOverMenu(
+            canvas, w, h,
+            title = title,
+            scoreMsg = "FINAL SCORE: $score",
+            subMsg = "AI LEVEL: GRANDMASTER",
+            footerMsg = "CENTER to Retry | BACK to Hub"
+        )
     }
 }
