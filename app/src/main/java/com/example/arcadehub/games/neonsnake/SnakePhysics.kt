@@ -32,13 +32,13 @@ class SnakePhysics {
         foods.clear()
 
         player = SnakeEntity(
-            body = arrayListOf(Point(4, 4), Point(4, 5), Point(4, 6)),
+            body = arrayListOf(Point(4, 6), Point(4, 7), Point(4, 8)),
             dir = GridDir.UP,
             health = SnakeConfig.INITIAL_HEALTH
         )
 
         ai = SnakeEntity(
-            body = arrayListOf(Point(11, 4), Point(11, 5), Point(11, 6)),
+            body = arrayListOf(Point(11, 2), Point(11, 1), Point(11, 0)),
             dir = GridDir.DOWN,
             health = SnakeConfig.INITIAL_HEALTH
         )
