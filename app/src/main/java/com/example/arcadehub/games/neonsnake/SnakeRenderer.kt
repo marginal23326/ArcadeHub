@@ -75,8 +75,11 @@ class SnakeRenderer {
         }
 
         // Draw Snakes
-        drawSnake(canvas, player.body, cellSize, offsetY, SnakeConfig.COLOR_P1_HEAD, SnakeConfig.COLOR_P1_BODY)
-        drawSnake(canvas, ai.body, cellSize, offsetY, SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY)
+        drawSnake(canvas, player.body, cellSize, 0f,
+            SnakeConfig.COLOR_P1_HEAD, SnakeConfig.COLOR_P1_BODY, SnakeConfig.COLOR_P1_TAIL)
+
+        drawSnake(canvas, ai.body, cellSize, 0f,
+            SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY, SnakeConfig.COLOR_AI_TAIL)
 
         // Draw HUD (Score + Health)
         drawHud(canvas, player, ai, width, gridH, highScore)
@@ -113,11 +116,13 @@ class SnakeRenderer {
         c.drawRect(x, y, x + (w * fillPct), y + h, barFillPaint)
     }
 
-    private fun drawSnake(canvas: Canvas, body: List<Point>, cellSize: Float, offY: Float, hCol: Int, bCol: Int) {
+    private fun drawSnake(canvas: Canvas, body: List<Point>, cellSize: Float, offY: Float, hCol: Int, bCol: Int, tCol: Int) {
         body.forEachIndexed { index, point ->
             val isHead = index == 0
-            snakePaint.color = if (isHead) hCol else lerpColor(bCol, Color.BLACK, index.toFloat() / body.size)
-            if (isHead) snakePaint.setShadowLayer(20f, 0f, 0f, hCol) else snakePaint.clearShadowLayer()
+            snakePaint.color = if (isHead) hCol else lerpColor(bCol, tCol, index.toFloat() / body.size)
+
+            if (isHead) snakePaint.setShadowLayer(20f, 0f, 0f, hCol)
+            else snakePaint.clearShadowLayer()
 
             val shrink = if (isHead) 0f else (index.toFloat() / body.size) * (cellSize * 0.25f)
             drawCell(canvas, point.x, point.y, cellSize, offY, snakePaint, isHead, shrink)
