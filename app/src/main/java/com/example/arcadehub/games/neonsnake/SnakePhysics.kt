@@ -65,7 +65,14 @@ class SnakePhysics {
     private fun tick() {
         if (inputQueue.isNotEmpty()) player.dir = inputQueue.removeFirst()
 
-        val aiMove = SnakeAi.getSmartMove(ai, player, foods, aiSearchDepth)
+        val aiMove = SnakeBrain.getSmartMove(
+            ai,
+            player,
+            foods,
+            SnakeConfig.COLS,
+            SnakeConfig.ROWS,
+            aiSearchDepth
+        )
         ai.dir = aiMove
 
         val pAlive = moveSnake(player)
