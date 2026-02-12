@@ -8,15 +8,22 @@ object SnakeBrain {
         foods: List<Point>,
         cols: Int,
         rows: Int,
-        depth: Int
+        depth: Int,
+        mapType: SnakeMapGenerator.MapType
     ): GridDir {
 
         // 1. Initialize & Clear
         SnakeZobrist.init(cols, rows)
         SnakeTT.clear()
 
-        // 2. Setup Grid
-        val grid = SnakeGrid.fromState(cols, rows, me.body, enemy.body, foods)
+        // 2. Setup Grid with Map Walls
+        val grid = SnakeGrid(cols, rows)
+
+        SnakeMapGenerator.applyMap(grid, mapType)
+
+        foods.forEach { grid[it.x, it.y] = 1 }
+        me.body.forEach { p -> grid[p.x, p.y] = 2 }
+        enemy.body.forEach { p -> grid[p.x, p.y] = 3 }
 
         // 3. Distance Map
         val distMap = SnakeAlgorithms.getFoodDistanceMap(grid, foods)
@@ -24,7 +31,7 @@ object SnakeBrain {
         // 4. State
         val state = SnakeHeuristics.State(me, enemy, foods, distMap)
 
-        // 4. Compute Initial Hash
+        // 5. Compute Initial Hash
         val initialHash = SnakeZobrist.computeHash(grid, me.health, enemy.health)
 
         // 6. AlphaBeta Search
@@ -42,8 +49,8 @@ object SnakeBrain {
 
             // Android Coords: y+1 is DOWN, y-1 is UP.
             val neighbors = listOf(
-                SnakeSearch.Neighbor(head.x, head.y + 1, GridDir.DOWN), // JS UP (0,1)
-                SnakeSearch.Neighbor(head.x, head.y - 1, GridDir.UP),   // JS DOWN (0,-1)
+                SnakeSearch.Neighbor(head.x, head.y + 1, GridDir.DOWN),
+                SnakeSearch.Neighbor(head.x, head.y - 1, GridDir.UP),
                 SnakeSearch.Neighbor(head.x - 1, head.y, GridDir.LEFT),
                 SnakeSearch.Neighbor(head.x + 1, head.y, GridDir.RIGHT)
             )
