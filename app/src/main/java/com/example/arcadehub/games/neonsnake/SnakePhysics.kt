@@ -13,6 +13,10 @@ class SnakePhysics {
     var isGameOver = false
     var gameOverReason = ""
 
+    // --- New Features ---
+    var isAutoPilot = false // Robot vs Robot mode
+    var speedDelay = SnakeConfig.GAME_SPEED_SECONDS // Variable speed
+
     private val inputQueue = ArrayDeque<GridDir>()
     private val historyBuffer = ArrayDeque<GameSnapshot>()
     private val MAX_HISTORY = 10
@@ -27,6 +31,9 @@ class SnakePhysics {
     fun reset() {
         isGameOver = false
         moveTimer = 0f
+        // Reset speed to default on new game
+        speedDelay = SnakeConfig.GAME_SPEED_SECONDS
+
         inputQueue.clear()
         historyBuffer.clear()
         foods.clear()
@@ -47,6 +54,8 @@ class SnakePhysics {
     }
 
     fun processInput(newDir: GridDir) {
+        if (isAutoPilot) return
+
         val lastDir = if (inputQueue.isNotEmpty()) inputQueue.last() else player.dir
         if ((lastDir.x + newDir.x == 0) && (lastDir.y + newDir.y == 0)) return
         if (lastDir == newDir) return
@@ -56,15 +65,34 @@ class SnakePhysics {
     fun update(dt: Float) {
         if (isGameOver) return
         moveTimer += dt
-        if (moveTimer >= SnakeConfig.GAME_SPEED_SECONDS) {
+
+        // Use variable speedDelay instead of constant
+        if (moveTimer >= speedDelay) {
             moveTimer = 0f
             tick()
         }
     }
 
     private fun tick() {
-        if (inputQueue.isNotEmpty()) player.dir = inputQueue.removeFirst()
+        // 1. Determine Player Move
+        if (isAutoPilot) {
+            // Robot Logic for Player (Blue)
+            // We use the same depth as the enemy for a fair fight
+            val playerMove = SnakeBrain.getSmartMove(
+                player,
+                ai,
+                foods,
+                SnakeConfig.COLS,
+                SnakeConfig.ROWS,
+                aiSearchDepth
+            )
+            player.dir = playerMove
+        } else {
+            // Human Logic
+            if (inputQueue.isNotEmpty()) player.dir = inputQueue.removeFirst()
+        }
 
+        // 2. Determine AI Move (Red)
         val aiMove = SnakeBrain.getSmartMove(
             ai,
             player,
@@ -75,14 +103,17 @@ class SnakePhysics {
         )
         ai.dir = aiMove
 
+        // 3. Move Entities
         val pAlive = moveSnake(player)
         val aAlive = moveSnake(ai)
 
+        // 4. Resolve State
         if (pAlive && aAlive) checkCollisions()
         else finalizeGameOver()
 
         recordSnapshot()
     }
+
     // Returns true if still alive after move (checks starvation and walls)
     private fun moveSnake(snake: SnakeEntity): Boolean {
         if (!snake.isAlive) return false
@@ -160,8 +191,8 @@ class SnakePhysics {
         isGameOver = true
         gameOverReason = when {
             !player.isAlive && !ai.isAlive -> "DRAW"
-            !player.isAlive -> "ROBOT WON"
-            else -> "YOU WON"
+            !player.isAlive -> "RED ROBOT WON"
+            else -> if (isAutoPilot) "BLUE ROBOT WON" else "YOU WON"
         }
     }
 

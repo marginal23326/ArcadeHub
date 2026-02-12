@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import com.example.arcadehub.core.GraphicsUtils
+import kotlin.math.roundToInt
 
 class SnakeRenderer {
 
@@ -23,11 +24,18 @@ class SnakeRenderer {
     }
     private val rect = RectF()
 
-    fun draw(canvas: Canvas, physics: SnakePhysics, width: Int, height: Int, highScore: Int) {
+    fun draw(
+        canvas: Canvas,
+        physics: SnakePhysics,
+        width: Int,
+        height: Int,
+        highScore: Int,
+        isRobotMode: Boolean
+    ) {
         drawInternal(
             canvas, width,
             physics.player, physics.ai, physics.foods,
-            highScore
+            highScore, isRobotMode, physics.speedDelay
         )
 
         if (physics.isGameOver) {
@@ -43,8 +51,8 @@ class SnakeRenderer {
         val p = SnakeEntity(ArrayList(snap.playerBody), GridDir.UP, snap.pScore, snap.pHealth)
         val a = SnakeEntity(ArrayList(snap.aiBody), GridDir.DOWN, snap.aScore, snap.aHealth)
 
-        // Draw the replay frame (HUD inside here will show the dynamic replay score)
-        drawInternal(canvas, width, p, a, snap.foods, 0)
+        // Draw the replay frame
+        drawInternal(canvas, width, p, a, snap.foods, 0, false, 0f)
 
         drawOverlay(canvas, width, height, physics.gameOverReason, finalScore, physics.getDifficultyLevel())
 
@@ -57,14 +65,13 @@ class SnakeRenderer {
     private fun drawInternal(
         canvas: Canvas, width: Int,
         player: SnakeEntity, ai: SnakeEntity, foods: List<Point>,
-        highScore: Int
+        highScore: Int, isRobotMode: Boolean, speedDelay: Float
     ) {
         canvas.drawColor(SnakeConfig.COLOR_BG)
 
         // 16x9 Aspect Ratio setup
         val cellSize = width.toFloat() / SnakeConfig.COLS
         val gridH = cellSize * SnakeConfig.ROWS
-
 
         val offsetY = 0f
 
@@ -88,10 +95,14 @@ class SnakeRenderer {
         drawSnake(canvas, ai.body, cellSize, offsetY, SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY, SnakeConfig.COLOR_AI_TAIL)
 
         // CRITICAL: Draw HUD (Score + Health)
-        drawHud(canvas, player, ai, width, gridH, highScore)
+        drawHud(canvas, player, ai, width, gridH, highScore, isRobotMode, speedDelay)
     }
 
-    private fun drawHud(canvas: Canvas, p: SnakeEntity, a: SnakeEntity, width: Int, gridBottom: Float, highScore: Int) {
+    private fun drawHud(
+        canvas: Canvas, p: SnakeEntity, a: SnakeEntity,
+        width: Int, gridBottom: Float,
+        highScore: Int, isRobotMode: Boolean, speedDelay: Float
+    ) {
         val headerHeight = 70f
         val y = 45f
 
@@ -106,15 +117,24 @@ class SnakeRenderer {
         // --- PLAYER 1 (LEFT) ---
         hudTextPaint.textAlign = Paint.Align.LEFT
         hudTextPaint.color = SnakeConfig.COLOR_P1_HEAD
-        canvas.drawText("P1: ${p.score}", sideMargin, y + 10f, hudTextPaint)
+        val pLabel = if (isRobotMode) "BOT" else "P1"
+        canvas.drawText("$pLabel: ${p.score}", sideMargin, y + 10f, hudTextPaint)
 
         // Space for text is 130f, bar follows
         drawHealthBar(canvas, sideMargin + 130f, y - 12f, barW, barH, p.health, SnakeConfig.COLOR_P1_BODY)
 
-        // --- BEST SCORE (CENTER) ---
+        // --- CENTER INFO ---
         hudTextPaint.textAlign = Paint.Align.CENTER
         hudTextPaint.color = Color.YELLOW
-        canvas.drawText("BEST: $highScore", width / 2f, y + 10f, hudTextPaint)
+
+        if (isRobotMode) {
+            // Show Speed Delay in Robot Mode
+            val ms = (speedDelay * 1000).roundToInt()
+            canvas.drawText("DELAY: ${ms}ms", width / 2f, y + 10f, hudTextPaint)
+        } else {
+            // Show High Score in Human Mode
+            canvas.drawText("BEST: $highScore", width / 2f, y + 10f, hudTextPaint)
+        }
 
         // --- AI (RIGHT) ---
         hudTextPaint.textAlign = Paint.Align.RIGHT
@@ -124,7 +144,6 @@ class SnakeRenderer {
         // Space for text is 130f, bar is placed to the left of the text
         drawHealthBar(canvas, width - sideMargin - 130f - barW, y - 12f, barW, barH, a.health, SnakeConfig.COLOR_AI_BODY)
     }
-
 
     private fun drawHealthBar(c: Canvas, x: Float, y: Float, w: Float, h: Float, hp: Int, color: Int) {
         // Background (Gray)

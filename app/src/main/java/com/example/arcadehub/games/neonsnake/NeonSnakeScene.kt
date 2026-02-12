@@ -9,20 +9,25 @@ import com.example.arcadehub.core.Constants
 import com.example.arcadehub.core.GraphicsUtils
 import com.example.arcadehub.core.InputAction
 import com.example.arcadehub.managers.SoundManager
+import kotlin.math.max
+import kotlin.math.min
 
 class NeonSnakeScene : BaseGameScene() {
 
     private val physics = SnakePhysics()
     private val renderer = SnakeRenderer()
 
-    // 1. Updated State Enum
     private enum class State { MENU, PLAYING, REPLAY }
-
     private var currentState = State.MENU
 
-    // 2. New Logic: Level 1 to 5
+    // Menu Selection
+    // 0 = Level Selection
+    // 1 = Game Mode Selection
+    private var menuRowIndex = 0
     private var selectedLevel = 3
+    private var isRobotVsRobotMode = false
 
+    // Replay vars
     private var replayData: List<GameSnapshot> = emptyList()
     private var replayIndex = 0
     private var replayTimer = 0f
@@ -35,6 +40,7 @@ class NeonSnakeScene : BaseGameScene() {
     private val menuTitlePaint = GraphicsUtils.createPaint(Color.CYAN, textSize = 70f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
     private val menuValPaint = GraphicsUtils.createPaint(Color.YELLOW, textSize = 90f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
     private val menuSubPaint = GraphicsUtils.createPaint(Color.LTGRAY, textSize = 35f, align = Paint.Align.CENTER)
+    private val menuLabelPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 40f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
     private val statsPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 35f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
 
     override fun resetGame() {
@@ -43,7 +49,8 @@ class NeonSnakeScene : BaseGameScene() {
         isGameOver = false
         isPaused = false
         score = 0
-        // Don't reset selectedLevel, keep user preference
+        menuRowIndex = 0
+        // Don't reset selectedLevel or isRobotVsRobotMode, keep user preference
     }
 
     override fun update(dt: Float) {
@@ -71,7 +78,12 @@ class NeonSnakeScene : BaseGameScene() {
     private fun startReplayMode() {
         this.isGameOver = true
         SoundManager.playGameOver()
-        checkNewHighScore()
+
+        // Only save high score if human is playing
+        if (!isRobotVsRobotMode) {
+            checkNewHighScore()
+        }
+
         this.finalScore = physics.player.score
 
         if (physics.gameOverReason == "YOU WON") {
@@ -89,7 +101,14 @@ class NeonSnakeScene : BaseGameScene() {
         when (currentState) {
             State.MENU -> drawLevelMenu(canvas)
             State.PLAYING -> {
-                renderer.draw(canvas, physics, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, highScore)
+                renderer.draw(
+                    canvas,
+                    physics,
+                    Constants.LOGIC_WIDTH,
+                    Constants.LOGIC_HEIGHT,
+                    highScore,
+                    isRobotVsRobotMode
+                )
             }
             State.REPLAY -> {
                 if (replayData.isNotEmpty()) {
@@ -110,43 +129,66 @@ class NeonSnakeScene : BaseGameScene() {
         }
     }
 
-    // 3. New Menu Drawing Logic
     private fun drawLevelMenu(canvas: Canvas) {
         canvas.drawColor(SnakeConfig.COLOR_BG)
         val cx = Constants.LOGIC_WIDTH / 2f
         val cy = Constants.LOGIC_HEIGHT / 2f
 
-        canvas.drawText("ROBOT DIFFICULTY", cx, cy - 120f, menuTitlePaint)
+        canvas.drawText("SNAKE SETUP", cx, cy - 180f, menuTitlePaint)
 
-        // Draw Arrows and Value
-        val showLeft = if (selectedLevel > 1) "<" else " "
-        val showRight = if (selectedLevel < 5) ">" else " "
-        val label = "$showLeft   LEVEL $selectedLevel   $showRight"
+        // --- ROW 0: Level Selection ---
+        val levelColor = if (menuRowIndex == 0) Color.YELLOW else Color.DKGRAY
+        menuValPaint.color = levelColor
+        menuLabelPaint.color = if (menuRowIndex == 0) Color.CYAN else Color.GRAY
 
-        canvas.drawText(label, cx, cy + 20f, menuValPaint)
+        canvas.drawText("DIFFICULTY", cx, cy - 80f, menuLabelPaint)
 
-        // Description
-        val description = when (selectedLevel) {
-            1 -> "Novice: The robot is still learning."
-            2 -> "Skilled: He's getting the hang of it!"
-            3 -> "Expert: A very smart opponent."
-            4 -> "Master: He can see into the future!"
-            5 -> "Grandmaster: The ultimate challenge!"
-            else -> ""
+        val showLeftLvl = if (selectedLevel > 1 && menuRowIndex == 0) "<" else " "
+        val showRightLvl = if (selectedLevel < 7 && menuRowIndex == 0) ">" else " "
+        canvas.drawText("$showLeftLvl   LEVEL $selectedLevel   $showRightLvl", cx, cy - 10f, menuValPaint)
+
+        // --- ROW 1: Mode Selection ---
+        val modeColor = if (menuRowIndex == 1) Color.YELLOW else Color.DKGRAY
+        menuValPaint.color = modeColor
+        menuLabelPaint.color = if (menuRowIndex == 1) Color.CYAN else Color.GRAY
+
+        canvas.drawText("GAME MODE", cx, cy + 90f, menuLabelPaint)
+
+        val modeText = if (isRobotVsRobotMode) "ROBOT vs ROBOT" else "HUMAN vs ROBOT"
+        val showArrowsMode = if (menuRowIndex == 1) "<   $modeText   >" else "    $modeText    "
+
+        // Use slightly smaller font for mode text so it fits
+        menuValPaint.textSize = 70f
+        canvas.drawText(showArrowsMode, cx, cy + 160f, menuValPaint)
+        menuValPaint.textSize = 90f // Restore
+
+        // --- Description (Dynamic) ---
+        val description = if (menuRowIndex == 0) {
+            when (selectedLevel) {
+                1 -> "Novice: The robot is still learning."
+                2 -> "Skilled: He's getting the hang of it!"
+                3 -> "Expert: A very smart opponent."
+                4 -> "Master: He can see into the future!"
+                5 -> "Grandmaster: The ultimate challenge!"
+                6 -> "Legend: Beyond human comprehension."
+                7 -> "Impossible: Victory is a myth."
+                else -> ""
+            }
+        } else {
+            if (isRobotVsRobotMode) "Watch two AIs fight! Controls speed." else "You fight the AI!"
         }
-        canvas.drawText(description, cx, cy + 110f, menuSubPaint)
+        canvas.drawText(description, cx, cy + 260f, menuSubPaint)
 
+        // Stats
         val wins = SnakeStats.getWins(selectedLevel)
         val losses = SnakeStats.getLosses(selectedLevel)
-
         val statColor = if (wins >= losses) Color.GREEN else Color.RED
         statsPaint.color = statColor
-
-        canvas.drawText("PLAYER WINS: $wins   |   ROBOT WINS: $losses", cx, cy + 200f, statsPaint)
+        canvas.drawText("PLAYER WINS: $wins   |   ROBOT WINS: $losses", cx, cy + 320f, statsPaint)
 
         // Controls
         GraphicsUtils.createPaint(Color.DKGRAY, textSize = 30f, align = Paint.Align.CENTER).also {
-            canvas.drawText("LEFT / RIGHT to change  |  CENTER to Play", cx, cy + 300f, it)
+            canvas.drawText("UP/DOWN select  |  LEFT/RIGHT change  |  CENTER Play", cx, cy + 380f, it)
         }
     }
 
@@ -174,8 +216,15 @@ class NeonSnakeScene : BaseGameScene() {
         }
 
         if (currentState == State.PLAYING) {
-            if (action == InputAction.BACK) pauseGame()
-            else handleGameInput(action)
+            if (action == InputAction.BACK) {
+                pauseGame()
+            } else {
+                if (isRobotVsRobotMode) {
+                    handleRobotSpeedInput(action)
+                } else {
+                    handleGameInput(action)
+                }
+            }
         }
     }
 
@@ -187,18 +236,29 @@ class NeonSnakeScene : BaseGameScene() {
         }
     }
 
-    // 4. New Menu Input Handling
     private fun handleMenuInput(action: InputAction) {
         when (action) {
+            InputAction.UP -> {
+                menuRowIndex = max(0, menuRowIndex - 1)
+                SoundManager.playSelect()
+            }
+            InputAction.DOWN -> {
+                menuRowIndex = min(1, menuRowIndex + 1)
+                SoundManager.playSelect()
+            }
             InputAction.LEFT -> {
-                if (selectedLevel > 1) {
-                    selectedLevel--
+                if (menuRowIndex == 0) {
+                    if (selectedLevel > 1) { selectedLevel--; SoundManager.playSelect() }
+                } else {
+                    isRobotVsRobotMode = !isRobotVsRobotMode
                     SoundManager.playSelect()
                 }
             }
             InputAction.RIGHT -> {
-                if (selectedLevel < 5) {
-                    selectedLevel++
+                if (menuRowIndex == 0) {
+                    if (selectedLevel < 7) { selectedLevel++; SoundManager.playSelect() }
+                } else {
+                    isRobotVsRobotMode = !isRobotVsRobotMode
                     SoundManager.playSelect()
                 }
             }
@@ -209,8 +269,25 @@ class NeonSnakeScene : BaseGameScene() {
         }
     }
 
+    private fun handleRobotSpeedInput(action: InputAction) {
+        val STEP = 0.05f
+
+        when (action) {
+            InputAction.RIGHT -> {
+                // Speed up (reduce delay)
+                physics.speedDelay = max(0f, physics.speedDelay - STEP)
+            }
+            InputAction.LEFT -> {
+                // Slow down (increase delay)
+                physics.speedDelay = min(SnakeConfig.GAME_SPEED_SECONDS, physics.speedDelay + STEP)
+            }
+            else -> {}
+        }
+    }
+
     private fun startGame() {
         physics.setDifficultyLevel(selectedLevel)
+        physics.isAutoPilot = isRobotVsRobotMode
         physics.reset()
 
         isGameOver = false
