@@ -120,8 +120,8 @@ class SnakeRenderer {
         val pLabel = if (isRobotMode) "BOT" else "P1"
         canvas.drawText("$pLabel: ${p.score}", sideMargin, y + 10f, hudTextPaint)
 
-        // Space for text is 130f, bar follows
-        drawHealthBar(canvas, sideMargin + 130f, y - 12f, barW, barH, p.health, SnakeConfig.COLOR_P1_BODY)
+        // Space for text is 160f, bar follows
+        drawHealthBar(canvas, sideMargin + 160f, y - 12f, barW, barH, p.health, SnakeConfig.COLOR_P1_BODY)
 
         // --- CENTER INFO ---
         hudTextPaint.textAlign = Paint.Align.CENTER
@@ -141,8 +141,8 @@ class SnakeRenderer {
         hudTextPaint.color = SnakeConfig.COLOR_AI_HEAD
         canvas.drawText("AI: ${a.score}", width - sideMargin, y + 10f, hudTextPaint)
 
-        // Space for text is 130f, bar is placed to the left of the text
-        drawHealthBar(canvas, width - sideMargin - 130f - barW, y - 12f, barW, barH, a.health, SnakeConfig.COLOR_AI_BODY)
+        // Space for text is 160f, bar is placed to the left of the text
+        drawHealthBar(canvas, width - sideMargin - 160f - barW, y - 12f, barW, barH, a.health, SnakeConfig.COLOR_AI_BODY)
     }
 
     private fun drawHealthBar(c: Canvas, x: Float, y: Float, w: Float, h: Float, hp: Int, color: Int) {
