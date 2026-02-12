@@ -11,10 +11,15 @@ import kotlin.math.roundToInt
 class SnakeRenderer {
 
     private val gridPaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_GRID, Paint.Style.STROKE, strokeWidth = 2f)
+    private val wallPaint = GraphicsUtils.createPaint(Color.DKGRAY).apply {
+        style = Paint.Style.FILL_AND_STROKE
+        strokeWidth = 2f
+    }
+    private val wallOutlinePaint = GraphicsUtils.createPaint(Color.GRAY, Paint.Style.STROKE, strokeWidth = 2f)
+
     private val foodPaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_FOOD).apply {
         setShadowLayer(15f, 0f, 0f, SnakeConfig.COLOR_FOOD)
     }
-
     private val snakePaint = Paint().apply { isAntiAlias = true }
     private val hudTextPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 40f, typeface = Typeface.DEFAULT_BOLD)
     private val barBgPaint = GraphicsUtils.createPaint(Color.DKGRAY)
@@ -24,6 +29,14 @@ class SnakeRenderer {
     }
     private val rect = RectF()
 
+    private var cachedCellSize = 0f
+
+    fun updateDimensions(width: Int) {
+        cachedCellSize = width.toFloat() / SnakeConfig.COLS
+    }
+
+    fun getCellSize(): Float = cachedCellSize
+
     fun draw(
         canvas: Canvas,
         physics: SnakePhysics,
@@ -32,10 +45,11 @@ class SnakeRenderer {
         highScore: Int,
         isRobotMode: Boolean
     ) {
+        if (cachedCellSize == 0f) updateDimensions(width)
         drawInternal(
             canvas, width,
             physics.player, physics.ai, physics.foods,
-            highScore, isRobotMode, physics.speedDelay
+            physics.grid, highScore, isRobotMode, physics.speedDelay
         )
 
         if (physics.isGameOver) {
@@ -47,16 +61,12 @@ class SnakeRenderer {
         canvas: Canvas, snap: GameSnapshot, width: Int, height: Int,
         physics: SnakePhysics, finalScore: Int
     ) {
-        // Create temp entities for drawing the replay moment
         val p = SnakeEntity(ArrayList(snap.playerBody), GridDir.UP, snap.pScore, snap.pHealth)
         val a = SnakeEntity(ArrayList(snap.aiBody), GridDir.DOWN, snap.aScore, snap.aHealth)
 
-        // Draw the replay frame
-        drawInternal(canvas, width, p, a, snap.foods, 0, false, 0f)
+        drawInternal(canvas, width, p, a, snap.foods, physics.grid, 0, false, 0f)
 
         drawOverlay(canvas, width, height, physics.gameOverReason, finalScore, physics.getDifficultyLevel())
-
-        // Replay Text
         GraphicsUtils.createPaint(Color.RED, textSize = 30f, align = Paint.Align.LEFT, typeface = Typeface.DEFAULT_BOLD).also {
             canvas.drawText("REPLAY MODE", 40f, height - 40f, it)
         }
@@ -65,17 +75,16 @@ class SnakeRenderer {
     private fun drawInternal(
         canvas: Canvas, width: Int,
         player: SnakeEntity, ai: SnakeEntity, foods: List<Point>,
+        grid: SnakeGrid, // Added grid
         highScore: Int, isRobotMode: Boolean, speedDelay: Float
     ) {
         canvas.drawColor(SnakeConfig.COLOR_BG)
 
-        // 16x9 Aspect Ratio setup
         val cellSize = width.toFloat() / SnakeConfig.COLS
         val gridH = cellSize * SnakeConfig.ROWS
-
         val offsetY = 0f
 
-        // Draw Grid
+        // Draw Grid Lines
         for (i in 0..SnakeConfig.COLS) {
             val x = i * cellSize
             canvas.drawLine(x, offsetY, x, offsetY + gridH, gridPaint)
@@ -85,16 +94,23 @@ class SnakeRenderer {
             canvas.drawLine(0f, y, width.toFloat(), y, gridPaint)
         }
 
-        // Draw Foods
-        foods.forEach { f ->
-            drawCell(canvas, f.x, f.y, cellSize, offsetY, foodPaint, true, 0f)
+        // Draw Walls
+        for (x in 0 until grid.width) {
+            for (y in 0 until grid.height) {
+                if (grid[x, y] == 9) { // 9 is Wall
+                    drawCell(canvas, x, y, cellSize, offsetY, wallPaint, false, 0f)
+                    drawCell(canvas, x, y, cellSize, offsetY, wallOutlinePaint, false, 0f)
+                }
+            }
         }
+
+        // Draw Foods
+        foods.forEach { f -> drawCell(canvas, f.x, f.y, cellSize, offsetY, foodPaint, true, 0f) }
 
         // Draw Snakes
         drawSnake(canvas, player.body, cellSize, offsetY, SnakeConfig.COLOR_P1_HEAD, SnakeConfig.COLOR_P1_BODY, SnakeConfig.COLOR_P1_TAIL)
         drawSnake(canvas, ai.body, cellSize, offsetY, SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY, SnakeConfig.COLOR_AI_TAIL)
 
-        // CRITICAL: Draw HUD (Score + Health)
         drawHud(canvas, player, ai, width, highScore, isRobotMode, speedDelay)
     }
 
@@ -105,10 +121,8 @@ class SnakeRenderer {
     ) {
         val headerHeight = 70f
         val y = 45f
-
         val barW = 250f
         val barH = 24f
-
         val sideMargin = 250f
 
         val headerPaint = Paint().apply { color = Color.BLACK; alpha = 180 }
@@ -119,20 +133,14 @@ class SnakeRenderer {
         hudTextPaint.color = SnakeConfig.COLOR_P1_HEAD
         val pLabel = if (isRobotMode) "BOT" else "P1"
         canvas.drawText("$pLabel: ${p.score}", sideMargin, y + 10f, hudTextPaint)
-
-        // Space for text is 160f, bar follows
         drawHealthBar(canvas, sideMargin + 160f, y - 12f, barW, barH, p.health, SnakeConfig.COLOR_P1_BODY)
 
-        // --- CENTER INFO ---
         hudTextPaint.textAlign = Paint.Align.CENTER
         hudTextPaint.color = Color.YELLOW
-
         if (isRobotMode) {
-            // Show Speed Delay in Robot Mode
             val ms = (speedDelay * 1000).roundToInt()
             canvas.drawText("DELAY: ${ms}ms", width / 2f, y + 10f, hudTextPaint)
         } else {
-            // Show High Score in Human Mode
             canvas.drawText("BEST: $highScore", width / 2f, y + 10f, hudTextPaint)
         }
 
@@ -140,8 +148,6 @@ class SnakeRenderer {
         hudTextPaint.textAlign = Paint.Align.RIGHT
         hudTextPaint.color = SnakeConfig.COLOR_AI_HEAD
         canvas.drawText("AI: ${a.score}", width - sideMargin, y + 10f, hudTextPaint)
-
-        // Space for text is 160f, bar is placed to the left of the text
         drawHealthBar(canvas, width - sideMargin - 160f - barW, y - 12f, barW, barH, a.health, SnakeConfig.COLOR_AI_BODY)
     }
 
@@ -190,7 +196,7 @@ class SnakeRenderer {
             canvas, w, h,
             title = title,
             scoreMsg = "FINAL SCORE: $score",
-            subMsg = "AI LEVEL: $level (DEPTH ${level * 2})",
+            subMsg = "AI LEVEL: $level",
             footerMsg = "CENTER to Retry | BACK to Hub"
         )
     }
