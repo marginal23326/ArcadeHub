@@ -11,26 +11,39 @@ object SnakeBrain {
         depth: Int
     ): GridDir {
 
-        // 1. Setup Grid
+        // 1. Initialize & Clear
+        SnakeZobrist.init(cols, rows)
+        SnakeTT.clear()
+
+        // 2. Setup Grid
         val grid = SnakeGrid.fromState(cols, rows, me.body, enemy.body, foods)
 
-        // 2. Distance Map
+        // 3. Distance Map
         val distMap = SnakeAlgorithms.getFoodDistanceMap(grid, foods)
 
-        // 3. State
+        // 4. State
         val state = SnakeHeuristics.State(me, enemy, foods, distMap)
 
-        // 4. AlphaBeta Search
-        val result = SnakeSearch.alphaBeta(grid, state, depth, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, true)
+        // 4. Compute Initial Hash
+        val initialHash = SnakeZobrist.computeHash(grid, me.health, enemy.health)
+
+        // 6. AlphaBeta Search
+        val result = SnakeSearch.alphaBeta(
+            grid, state, depth,
+            Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,
+            true, depth, initialHash
+        )
 
         var moveDir = result.move
 
-        // 5. FAILSAFE
+        // 7. FAILSAFE
         if (moveDir == null) {
             val head = me.head()
+
+            // Android Coords: y+1 is DOWN, y-1 is UP.
             val neighbors = listOf(
-                SnakeSearch.Neighbor(head.x, head.y + 1, GridDir.UP),
-                SnakeSearch.Neighbor(head.x, head.y - 1, GridDir.DOWN),
+                SnakeSearch.Neighbor(head.x, head.y + 1, GridDir.DOWN), // JS UP (0,1)
+                SnakeSearch.Neighbor(head.x, head.y - 1, GridDir.UP),   // JS DOWN (0,-1)
                 SnakeSearch.Neighbor(head.x - 1, head.y, GridDir.LEFT),
                 SnakeSearch.Neighbor(head.x + 1, head.y, GridDir.RIGHT)
             )

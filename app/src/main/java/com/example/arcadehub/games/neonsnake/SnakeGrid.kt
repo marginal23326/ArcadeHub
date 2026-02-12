@@ -1,10 +1,11 @@
 package com.example.arcadehub.games.neonsnake
 
 class SnakeGrid(val width: Int, val height: Int) {
-    // 0: Empty, 1: Food, 2: My Body, 3: Enemy Body, 4: Heads
-    private val cells = IntArray(width * height)
+    // 0: Empty, 1: Food, 2: My Body, 3: Enemy Body
+    val cells = IntArray(width * height)
 
-    private fun idx(x: Int, y: Int) = y * width + x
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun idx(x: Int, y: Int) = y * width + x
 
     operator fun get(x: Int, y: Int): Int {
         if (x !in 0 until width || y !in 0 until height) return 9 // Out of bounds
@@ -39,8 +40,9 @@ class SnakeGrid(val width: Int, val height: Int) {
             // Place Food
             foods.forEach { g[it.x, it.y] = 1 }
 
-            pBody.forEachIndexed { i, p -> g[p.x, p.y] = if (i == 0) 4 else 2 }
-            aBody.forEachIndexed { i, p -> g[p.x, p.y] = if (i == 0) 4 else 3 }
+            // Use 2 for ALL player segments, 3 for ALL enemy segments
+            pBody.forEach { p -> g[p.x, p.y] = 2 }
+            aBody.forEach { p -> g[p.x, p.y] = 3 }
 
             return g
         }

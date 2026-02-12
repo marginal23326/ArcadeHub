@@ -1,6 +1,7 @@
 package com.example.arcadehub.games.neonsnake
 
 import kotlin.math.atan
+import kotlin.math.abs
 
 object SnakeHeuristics {
 
@@ -9,32 +10,7 @@ object SnakeHeuristics {
         val enemy: SnakeEntity,
         val foods: List<Point>,
         val distMap: IntArray?
-    ) {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-
-            other as State
-
-            if (me != other.me) return false
-            if (enemy != other.enemy) return false
-            if (foods != other.foods) return false
-            if (distMap != null) {
-                if (other.distMap == null) return false
-                if (!distMap.contentEquals(other.distMap)) return false
-            } else if (other.distMap != null) return false
-
-            return true
-        }
-
-        override fun hashCode(): Int {
-            var result = me.hashCode()
-            result = 31 * result + enemy.hashCode()
-            result = 31 * result + foods.hashCode()
-            result = 31 * result + (distMap?.contentHashCode() ?: 0)
-            return result
-        }
-    }
+    )
 
     fun evaluate(grid: SnakeGrid, state: State): Double {
         val me = state.me
@@ -54,8 +30,9 @@ object SnakeHeuristics {
         // Handle Tail Safety
         var tailIsSafe = false
         var originalTailVal = 0
-        val tail = me.body.last()
-        if (me.health < 100) {
+        val tail = if (me.body.isNotEmpty()) me.body.last() else null
+
+        if (tail != null && me.health < 100) {
             tailIsSafe = true
             originalTailVal = grid[tail.x, tail.y]
             grid[tail.x, tail.y] = 0
@@ -64,10 +41,8 @@ object SnakeHeuristics {
         // 2. Voronoi Territory Control
         val voronoi = SnakeAlgorithms.computeVoronoi(grid, myHead, enemyHead)
 
-        // Restore tail
-        if (tailIsSafe) grid[tail.x, tail.y] = originalTailVal
+        if (tailIsSafe && tail != null) grid[tail.x, tail.y] = originalTailVal
 
-        // A. Territory Score
         score += (voronoi.myCount - voronoi.enemyCount) * SnakeConfig.Scores.TERRITORY_CONTROL
 
         var iAmInDeathTrap = false
@@ -105,7 +80,7 @@ object SnakeHeuristics {
         }
 
         // 4. Tactical Kill Pressure
-        val distToOpp = SnakeAlgorithms.manhattan(myHead, enemyHead)
+        val distToOpp = abs(myHead.x - enemyHead.x) + abs(myHead.y - enemyHead.y)
         if (distToOpp == 1 && me.body.size > enemy.body.size) {
             score += SnakeConfig.Scores.KILL_PRESSURE
         }
@@ -116,18 +91,19 @@ object SnakeHeuristics {
             var closestDist = 9999
             if (state.distMap != null) {
                 val headIdx = myHead.y * grid.width + myHead.x
+                // Bounds check for safety
                 if (headIdx in state.distMap.indices) {
                     closestDist = state.distMap[headIdx]
                 }
             } else {
-                state.foods.forEach { f ->
-                    val d = SnakeAlgorithms.manhattan(myHead, f)
+                for (f in state.foods) {
+                    val d = abs(myHead.x - f.x) + abs(myHead.y - f.y)
                     if (d < closestDist) closestDist = d
                 }
             }
 
             if (closestDist > me.health) {
-                return SnakeConfig.Scores.LOSS // Starvation
+                return SnakeConfig.Scores.LOSS
             }
 
             if (closestDist < 1000) {
