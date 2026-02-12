@@ -32,29 +32,32 @@ class SnakeAiRegressionTest {
 
                 val actualMoveName = bestMove.name.lowercase()
                 val expectedMoveName = scenario.expectedMove?.lowercase()
-                val avoidListNames = scenario.avoidList.map { it.lowercase() }
 
                 if (expectedMoveName != null && expectedMoveName != "unknown") {
                     if (actualMoveName == expectedMoveName) {
                         println("✅ [PASS] ${file.name}: AI chose $actualMoveName")
                         passed++
                     } else {
-                        println("❌ [FAIL] ${file.name}: Expected ${scenario.expectedMove}, Got $actualMoveName")
+                        println("❌ [FAIL] ${file.name}: Expected $expectedMoveName, Got $actualMoveName")
                         failed++
                     }
-                } else if (avoidListNames.isNotEmpty()) {
-                    if (avoidListNames.contains(actualMoveName)) {
-                        println("❌ [FAIL] ${file.name}: AI chose $actualMoveName (which is in Avoid list: $avoidListNames)")
-                        failed++
+                } else {
+                    val avoidListNames = scenario.avoidList.map { it.lowercase() }
+                    if (avoidListNames.isNotEmpty()) {
+                        if (avoidListNames.contains(actualMoveName)) {
+                            println("❌ [FAIL] ${file.name}: AI chose $actualMoveName (Avoid: $avoidListNames)")
+                            failed++
+                        } else {
+                            println("✅ [PASS] ${file.name}: AI avoided $avoidListNames (chose $actualMoveName)")
+                            passed++
+                        }
                     } else {
-                        println("✅ [PASS] ${file.name}: AI avoided $avoidListNames (chose $actualMoveName)")
-                        passed++
+                        println("⚠️ [SKIP] ${file.name}: No expectations or avoid list provided.")
                     }
                 }
             } catch (e: Exception) {
-                println("CRASHED on file ${file.name}")
+                println("❌ [CRASH] ${file.name}: ${e.message}")
                 failed++
-                throw e
             }
         }
 

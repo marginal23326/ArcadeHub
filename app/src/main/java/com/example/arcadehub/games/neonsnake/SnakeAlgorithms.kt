@@ -1,7 +1,5 @@
 package com.example.arcadehub.games.neonsnake
 
-import kotlin.math.abs
-
 object SnakeAlgorithms {
 
     private var ffVisited: IntArray? = null
@@ -50,8 +48,6 @@ object SnakeAlgorithms {
 
     data class FloodFillResult(val count: Int, val minTurnsToClear: Int, val hasFood: Boolean)
     data class VoronoiResult(val myCount: Int, val enemyCount: Int)
-
-    fun manhattan(p1: Point, p2: Point) = abs(p1.x - p2.x) + abs(p1.y - p2.y)
 
     fun floodFill(
         grid: SnakeGrid,
