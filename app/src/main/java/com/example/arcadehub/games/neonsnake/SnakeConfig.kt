@@ -10,8 +10,8 @@ object SnakeConfig {
     const val GAME_SPEED_SECONDS = 0.45f
     const val INITIAL_HEALTH = 100
     const val FOOD_COUNT = 2
+    const val MIN_FOOD_SPACING = 4
 
-    // --- EXACT JS WEIGHTS (Formerly SnakeAiConfig) ---
     object Scores {
         const val WIN = 1_000_000_000.0
         const val LOSS = -1_000_000_000.0

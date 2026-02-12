@@ -1,6 +1,7 @@
 package com.example.arcadehub.games.neonsnake
 
 import com.example.arcadehub.managers.SoundManager
+import kotlin.math.abs
 import kotlin.random.Random
 
 class SnakePhysics {
@@ -198,17 +199,33 @@ class SnakePhysics {
 
     private fun placeFood() {
         var attempts = 0
-        while (attempts < 100) {
+        while (attempts < 200) {
             val rx = Random.nextInt(SnakeConfig.COLS)
             val ry = Random.nextInt(SnakeConfig.ROWS)
             val p = Point(rx, ry)
 
             val occupied = player.body.contains(p) || ai.body.contains(p) || foods.contains(p)
-            if (!occupied) {
-                foods.add(p)
-                return
+            if (occupied) {
+                attempts++
+                continue
             }
-            attempts++
+
+            var tooClose = false
+            for (f in foods) {
+                val dist = abs(f.x - rx) + abs(f.y - ry)
+                if (dist < SnakeConfig.MIN_FOOD_SPACING) {
+                    tooClose = true
+                    break
+                }
+            }
+
+            if (tooClose && attempts < 150) {
+                attempts++
+                continue
+            }
+
+            foods.add(p)
+            return
         }
     }
 
