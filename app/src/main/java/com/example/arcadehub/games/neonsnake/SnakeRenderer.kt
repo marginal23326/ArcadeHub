@@ -95,12 +95,12 @@ class SnakeRenderer {
         drawSnake(canvas, ai.body, cellSize, offsetY, SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY, SnakeConfig.COLOR_AI_TAIL)
 
         // CRITICAL: Draw HUD (Score + Health)
-        drawHud(canvas, player, ai, width, gridH, highScore, isRobotMode, speedDelay)
+        drawHud(canvas, player, ai, width, highScore, isRobotMode, speedDelay)
     }
 
     private fun drawHud(
         canvas: Canvas, p: SnakeEntity, a: SnakeEntity,
-        width: Int, gridBottom: Float,
+        width: Int,
         highScore: Int, isRobotMode: Boolean, speedDelay: Float
     ) {
         val headerHeight = 70f
