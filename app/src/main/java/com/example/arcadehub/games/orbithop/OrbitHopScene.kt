@@ -53,8 +53,12 @@ class OrbitHopScene : BaseGameScene() {
     override fun handleGameInput(action: InputAction, isDown: Boolean) {
         if (!isDown) return
 
-        if (physics.tapAction()) {
-            SoundManager.playSwoosh()
+        if (action == InputAction.SELECT) {
+            when (physics.tapAction()) {
+                LaunchInputResult.LAUNCHED -> Unit
+                LaunchInputResult.BAD_ANGLE -> Unit
+                LaunchInputResult.IGNORED -> Unit
+            }
         }
     }
 }
