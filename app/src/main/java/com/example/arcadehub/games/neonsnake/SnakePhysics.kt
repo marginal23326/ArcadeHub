@@ -1,7 +1,6 @@
 package com.example.arcadehub.games.neonsnake
 
 import com.example.arcadehub.managers.SoundManager
-import kotlin.math.abs
 import kotlin.random.Random
 
 enum class SnakeGameOutcome {
@@ -74,7 +73,7 @@ class SnakePhysics {
         // 4. Mark bodies on grid so food placement doesn't overlap immediately
         updateGridWithBodies()
 
-        repeat(SnakeConfig.FOOD_COUNT) { placeFood() }
+        placeFoodRandomly(SnakeConfig.MIN_FOOD)
     }
 
     // Helper to spawn snake away from walls
@@ -147,6 +146,10 @@ class SnakePhysics {
         if (pAlive && aAlive) checkCollisions()
         else finalizeGameOver()
 
+        if (!isGameOver) {
+            postUpdateFood()
+        }
+
         recordSnapshot()
     }
 
@@ -186,7 +189,6 @@ class SnakePhysics {
             foods.removeAt(foodIdx)
             snake.score++
             snake.health = 100
-            placeFood()
 
             // Visual Trigger
             val color = if(snake === player) SnakeConfig.COLOR_P1_HEAD else SnakeConfig.COLOR_AI_HEAD
@@ -246,30 +248,53 @@ class SnakePhysics {
         }
     }
 
-    private fun placeFood() {
-        var attempts = 0
-        while (attempts < 200) {
-            val rx = Random.nextInt(SnakeConfig.COLS)
-            val ry = Random.nextInt(SnakeConfig.ROWS)
+    private fun postUpdateFood() {
+        val foodNeeded = checkFoodNeedingPlacement()
+        if (foodNeeded > 0) {
+            placeFoodRandomly(foodNeeded)
+        }
+    }
 
-            // Check Map Wall (9)
-            if (grid[rx, ry] == 9) { attempts++; continue }
+    private fun checkFoodNeedingPlacement(): Int {
+        val minFood = SnakeConfig.MIN_FOOD
+        val foodSpawnChance = SnakeConfig.FOOD_SPAWN_CHANCE_PERCENT
+        val currentFood = foods.size
 
-            val p = Point(rx, ry)
-            val occupied = player.body.contains(p) || ai.body.contains(p) || foods.contains(p)
-            if (occupied) { attempts++; continue }
+        if (currentFood < minFood) {
+            return minFood - currentFood
+        }
 
-            var tooClose = false
-            for (f in foods) {
-                if (abs(f.x - rx) + abs(f.y - ry) < SnakeConfig.MIN_FOOD_SPACING) {
-                    tooClose = true; break
+        if ((100 - Random.nextInt(100)) < foodSpawnChance) {
+            return 1
+        }
+
+        return 0
+    }
+
+    private fun placeFoodRandomly(n: Int) {
+        val unoccupiedPoints = ArrayList<Point>()
+        for (y in 0 until SnakeConfig.ROWS) {
+            for (x in 0 until SnakeConfig.COLS) {
+                if (grid[x, y] == 9) continue
+
+                val p = Point(x, y)
+                val occupied = player.body.contains(p) || ai.body.contains(p) || foods.contains(p)
+                if (!occupied) {
+                    unoccupiedPoints.add(p)
                 }
             }
+        }
+        placeFoodRandomlyAtPositions(n, unoccupiedPoints)
+    }
 
-            if (tooClose && attempts < 150) { attempts++; continue }
+    private fun placeFoodRandomlyAtPositions(n: Int, positions: MutableList<Point>) {
+        if (positions.isEmpty()) return
 
-            foods.add(p)
-            return
+        val foodToPlace = minOf(n, positions.size)
+        positions.shuffle(Random)
+
+        for (i in 0 until foodToPlace) {
+            foods.add(positions[i])
         }
     }
 

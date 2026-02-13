@@ -9,8 +9,8 @@ object SnakeConfig {
     const val ROWS = 9
     const val GAME_SPEED_SECONDS = 0.45f
     const val INITIAL_HEALTH = 100
-    const val FOOD_COUNT = 2
-    const val MIN_FOOD_SPACING = 4
+    const val MIN_FOOD = 2
+    const val FOOD_SPAWN_CHANCE_PERCENT = 15
 
     object Scores {
         const val WIN = 1_000_000_000.0
