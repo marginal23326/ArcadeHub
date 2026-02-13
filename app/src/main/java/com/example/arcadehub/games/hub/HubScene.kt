@@ -13,7 +13,7 @@ import com.example.arcadehub.managers.SoundManager
 import kotlin.system.exitProcess
 
 object HubConfig {
-    const val COLUMNS = 5
+    const val COLUMNS = 4
 }
 
 data class HubGameData(
@@ -26,10 +26,10 @@ class HubScene : Scene {
     private val renderer = HubRenderer()
 
     private val gameList = listOf(
-        HubGameData("BLOCK STACK", R.drawable.menu_blockstack) { BlockStackScene() },
-        HubGameData("ECHO RUNNER", R.drawable.menu_echorunner) { EchoRunnerScene() },
-        HubGameData("ORBIT HOP", R.drawable.menu_orbithop) { OrbitHopScene() },
-        HubGameData("NEON SNAKE", R.drawable.menu_neonsnake) { NeonSnakeScene() }
+        HubGameData("Block Stack", R.drawable.menu_blockstack) { BlockStackScene() },
+        HubGameData("Echo Runner", R.drawable.menu_echorunner) { EchoRunnerScene() },
+        HubGameData("Orbit Hop", R.drawable.menu_orbithop) { OrbitHopScene() },
+        HubGameData("Neon Snake", R.drawable.menu_neonsnake) { NeonSnakeScene() }
     )
 
     companion object { private var lastSelection = 0 }
@@ -44,7 +44,7 @@ class HubScene : Scene {
     override fun onInput(action: InputAction, isDown: Boolean) {
         if (!isDown) return
 
-        val cols = HubConfig.COLUMNS
+        val cols = minOf(HubConfig.COLUMNS, gameList.size.coerceAtLeast(1))
         val row = selectedIndex / cols
 
         when (action) {
