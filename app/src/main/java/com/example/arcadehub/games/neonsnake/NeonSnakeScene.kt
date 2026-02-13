@@ -2,7 +2,10 @@ package com.example.arcadehub.games.neonsnake
 
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.Typeface
 import com.example.arcadehub.core.BaseGameScene
 import com.example.arcadehub.core.Constants
@@ -11,6 +14,7 @@ import com.example.arcadehub.core.InputAction
 import com.example.arcadehub.managers.SoundManager
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 import kotlin.random.Random
 
 class NeonSnakeScene : BaseGameScene() {
@@ -38,15 +42,40 @@ class NeonSnakeScene : BaseGameScene() {
     private var replayIndex = 0
     private var replayTimer = 0f
     private val REPLAY_SPEED = 0.85f
+    private var menuPulseTime = 0f
 
     override val highScoreKey: String = "SNAKE_HIGHSCORE"
     private var finalScore = 0
 
-    // Paints
-    private val menuTitlePaint = GraphicsUtils.createPaint(Color.CYAN, textSize = 70f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
-    private val menuValPaint = GraphicsUtils.createPaint(Color.YELLOW, textSize = 80f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
-    private val menuLabelPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 40f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
-    private val statsPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 35f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+    // Menu visuals
+    private val menuBgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val menuShadePaint = GraphicsUtils.createPaint(Color.BLACK, alpha = 55)
+    private val menuPanelPaint = GraphicsUtils.createPaint(Color.argb(190, 10, 16, 24))
+    private val menuPanelStrokePaint = GraphicsUtils.createPaint(Color.argb(130, 84, 108, 134), Paint.Style.STROKE, strokeWidth = 2f)
+
+    private val menuTitlePaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 82f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+    private val menuSubTitlePaint = GraphicsUtils.createPaint(Color.argb(235, 160, 178, 197), textSize = 34f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+
+    private val menuRowPaint = GraphicsUtils.createPaint(Color.argb(170, 17, 26, 36))
+    private val menuRowActivePaint = GraphicsUtils.createPaint(Color.argb(205, 18, 40, 54))
+    private val menuRowStrokePaint = GraphicsUtils.createPaint(Color.argb(95, 96, 120, 146), Paint.Style.STROKE, strokeWidth = 2f)
+    private val menuRowActiveStrokePaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_P1_HEAD, Paint.Style.STROKE, strokeWidth = 3f)
+
+    private val menuLabelPaint = GraphicsUtils.createPaint(Color.argb(220, 152, 174, 199), textSize = 28f, align = Paint.Align.LEFT, typeface = Typeface.DEFAULT_BOLD)
+    private val menuValPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 46f, align = Paint.Align.RIGHT, typeface = Typeface.DEFAULT_BOLD)
+    private val menuArrowPaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_P1_HEAD, textSize = 50f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+
+    private val statsCardPaint = GraphicsUtils.createPaint(Color.argb(170, 12, 22, 31))
+    private val statsCardStrokePaint = GraphicsUtils.createPaint(Color.argb(120, 84, 108, 134), Paint.Style.STROKE, strokeWidth = 2f)
+    private val statsTextPaint = GraphicsUtils.createPaint(Color.argb(240, 212, 222, 232), textSize = 32f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+    private val controlsPaint = GraphicsUtils.createPaint(Color.argb(200, 146, 161, 179), textSize = 28f, align = Paint.Align.CENTER, typeface = Typeface.DEFAULT_BOLD)
+
+    private val panelRect = RectF()
+    private val rowRect = RectF()
+    private val statsRect = RectF()
+    private var menuBgGradient: LinearGradient? = null
+    private var menuBgWidth = -1
+    private var menuBgHeight = -1
 
     init {
         // Hook up Physics events to Visuals
@@ -76,6 +105,7 @@ class NeonSnakeScene : BaseGameScene() {
         isPaused = false
         score = 0
         menuRowIndex = 0
+        menuPulseTime = 0f
         particles.clear()
     }
 
@@ -88,6 +118,9 @@ class NeonSnakeScene : BaseGameScene() {
 
         // Update Particles
         particles.update(dt)
+        if (currentState == State.MENU) {
+            menuPulseTime += dt
+        }
 
         when (currentState) {
             State.PLAYING -> {
@@ -160,47 +193,127 @@ class NeonSnakeScene : BaseGameScene() {
     }
 
     private fun drawLevelMenu(canvas: Canvas) {
-        canvas.drawColor(SnakeConfig.COLOR_BG)
-        val cx = Constants.LOGIC_WIDTH / 2f
-        val cy = Constants.LOGIC_HEIGHT / 2f
+        val width = Constants.LOGIC_WIDTH
+        val height = Constants.LOGIC_HEIGHT
+        ensureMenuBackground(width, height)
 
-        // Compact spacing to fit 3 rows
-        val startY = cy - 200f
-        val rowH = 140f
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), menuBgPaint)
+        canvas.drawRect(0f, 0f, width.toFloat(), 140f, menuShadePaint)
+        canvas.drawRect(0f, height - 180f, width.toFloat(), height.toFloat(), menuShadePaint)
 
-        canvas.drawText("SNAKE SETUP", cx, startY, menuTitlePaint)
+        val cx = width / 2f
+        val panelWidth = (width * 0.78f).coerceAtMost(1350f)
+        val panelHeight = (height * 0.74f).coerceAtMost(820f)
+        val panelLeft = cx - panelWidth / 2f
+        val panelTop = height * 0.12f
+        val panelRight = panelLeft + panelWidth
+        val panelBottom = panelTop + panelHeight
+        panelRect.set(panelLeft, panelTop, panelRight, panelBottom)
+        canvas.drawRoundRect(panelRect, 42f, 42f, menuPanelPaint)
+        canvas.drawRoundRect(panelRect, 42f, 42f, menuPanelStrokePaint)
 
-        // --- ROW 0: Level ---
-        drawMenuRow(canvas, 0, "DIFFICULTY", "LEVEL $selectedLevel", cx, startY + 80f)
+        canvas.drawText("NEON SNAKE", cx, panelTop + 90f, menuTitlePaint)
+        canvas.drawText("Choose settings and launch", cx, panelTop + 136f, menuSubTitlePaint)
 
-        // --- ROW 1: Mode ---
-        val modeText = if (isRobotVsRobotMode) "ROBOT BATTLE" else "PLAYER vs ROBOT"
-        drawMenuRow(canvas, 1, "GAME MODE", modeText, cx, startY + 80f + rowH)
+        val rowLeft = panelLeft + 42f
+        val rowRight = panelRight - 42f
+        val rowHeight = 122f
+        val rowGap = 22f
+        val firstRowTop = panelTop + 178f
 
-        // --- ROW 2: Map ---
-        drawMenuRow(canvas, 2, "ARENA MAP", selectedMap.name, cx, startY + 80f + rowH * 2)
+        drawMenuRow(canvas, 0, "Difficulty", "Level $selectedLevel", rowLeft, firstRowTop, rowRight, firstRowTop + rowHeight)
 
-        // Stats
+        val modeText = if (isRobotVsRobotMode) "Bot vs Bot" else "Player vs Bot"
+        val secondTop = firstRowTop + rowHeight + rowGap
+        drawMenuRow(canvas, 1, "Game Mode", modeText, rowLeft, secondTop, rowRight, secondTop + rowHeight)
+
+        val thirdTop = secondTop + rowHeight + rowGap
+        drawMenuRow(canvas, 2, "Arena Map", formatMapName(selectedMap), rowLeft, thirdTop, rowRight, thirdTop + rowHeight)
+
         val wins = SnakeStats.getWins(selectedLevel)
         val losses = SnakeStats.getLosses(selectedLevel)
-        statsPaint.color = if (wins >= losses) Color.GREEN else Color.RED
-        canvas.drawText("WINS: $wins  |  LOSSES: $losses", cx, cy + 340f, statsPaint)
+        val statsTop = panelBottom - 130f
+        statsRect.set(rowLeft, statsTop, rowRight, statsTop + 76f)
+        canvas.drawRoundRect(statsRect, 20f, 20f, statsCardPaint)
+        canvas.drawRoundRect(statsRect, 20f, 20f, statsCardStrokePaint)
 
-        // Controls
-        GraphicsUtils.createPaint(Color.DKGRAY, textSize = 28f, align = Paint.Align.CENTER).also {
-            canvas.drawText("UP/DOWN Select | LEFT/RIGHT Change | CENTER Play", cx, cy + 380f, it)
+        statsTextPaint.color = when {
+            wins > losses -> Color.rgb(106, 229, 166)
+            losses > wins -> Color.rgb(255, 133, 133)
+            else -> Color.argb(240, 212, 222, 232)
+        }
+        canvas.drawText("Level $selectedLevel  |  Wins $wins  |  Losses $losses  |  Best $highScore", cx, statsRect.centerY() + 11f, statsTextPaint)
+
+        canvas.drawText(
+            "UP/DOWN: Select   LEFT/RIGHT: Change   CENTER: Play   BACK: Hub",
+            cx,
+            height - 42f,
+            controlsPaint
+        )
+    }
+
+    private fun ensureMenuBackground(width: Int, height: Int) {
+        if (menuBgWidth == width && menuBgHeight == height && menuBgGradient != null) return
+        menuBgWidth = width
+        menuBgHeight = height
+        menuBgGradient = LinearGradient(
+            0f,
+            0f,
+            0f,
+            height.toFloat(),
+            Color.rgb(6, 12, 20),
+            Color.rgb(5, 7, 11),
+            Shader.TileMode.CLAMP
+        )
+        menuBgPaint.shader = menuBgGradient
+    }
+
+    private fun formatMapName(mapType: SnakeMapGenerator.MapType): String {
+        return when (mapType) {
+            SnakeMapGenerator.MapType.EMPTY -> "Empty"
+            SnakeMapGenerator.MapType.PILLARS -> "Pillars"
+            SnakeMapGenerator.MapType.ROOMS -> "Rooms"
+            SnakeMapGenerator.MapType.CENTER_BOX -> "Center Box"
         }
     }
 
-    private fun drawMenuRow(c: Canvas, index: Int, label: String, value: String, x: Float, y: Float) {
-        val isActive = (menuRowIndex == index)
-        menuLabelPaint.color = if (isActive) Color.CYAN else Color.GRAY
-        menuValPaint.color = if (isActive) Color.YELLOW else Color.DKGRAY
+    private fun drawMenuRow(
+        canvas: Canvas,
+        index: Int,
+        label: String,
+        value: String,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float
+    ) {
+        val isActive = menuRowIndex == index
+        val pulse = ((sin(menuPulseTime * 4.3f) + 1f) * 0.5f)
 
-        c.drawText(label, x, y, menuLabelPaint)
-        val showL = if (isActive) "< " else "  "
-        val showR = if (isActive) " >" else "  "
-        c.drawText("$showL$value$showR", x, y + 70f, menuValPaint)
+        rowRect.set(left, top, right, bottom)
+        if (isActive) {
+            menuRowActivePaint.alpha = (190 + (pulse * 30f).toInt()).coerceIn(0, 255)
+            menuRowActiveStrokePaint.alpha = (150 + (pulse * 105f).toInt()).coerceIn(0, 255)
+            canvas.drawRoundRect(rowRect, 24f, 24f, menuRowActivePaint)
+            canvas.drawRoundRect(rowRect, 24f, 24f, menuRowActiveStrokePaint)
+        } else {
+            canvas.drawRoundRect(rowRect, 24f, 24f, menuRowPaint)
+            canvas.drawRoundRect(rowRect, 24f, 24f, menuRowStrokePaint)
+        }
+
+        menuLabelPaint.color = if (isActive) Color.WHITE else Color.argb(220, 152, 174, 199)
+        menuValPaint.color = if (isActive) Color.WHITE else Color.argb(230, 196, 208, 222)
+
+        val contentLeft = left + 34f
+        val contentRight = right - 34f
+        canvas.drawText(label, contentLeft, top + 42f, menuLabelPaint)
+        canvas.drawText(value, contentRight, top + 93f, menuValPaint)
+
+        if (isActive) {
+            menuArrowPaint.alpha = (170 + (pulse * 85f).toInt()).coerceIn(0, 255)
+            canvas.drawText("<", left + 18f, top + 92f, menuArrowPaint)
+            canvas.drawText(">", right - 18f, top + 92f, menuArrowPaint)
+        }
     }
 
     override fun onInput(action: InputAction, isDown: Boolean) {
