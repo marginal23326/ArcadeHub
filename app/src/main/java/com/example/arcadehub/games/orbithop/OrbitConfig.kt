@@ -1,6 +1,5 @@
 package com.example.arcadehub.games.orbithop
 
-import android.graphics.Color
 import androidx.core.graphics.toColorInt
 
 object OrbitConfig {
@@ -24,17 +23,24 @@ object OrbitConfig {
     const val MISS_MARGIN_Y = 300f
 
     // --- COLORS ---
-    val BG_COLOR = "#1A1A1A".toColorInt()
-    val COLOR_PLAYER = Color.WHITE
+    val BG_COLOR = "#08121D".toColorInt()
+    val BG_ACCENT_TOP = "#0F2437".toColorInt()
+    val BG_ACCENT_BOTTOM = "#050B13".toColorInt()
 
-    const val COLOR_PIVOT_CORE_INACTIVE = 0xFF444444.toInt()
-    const val COLOR_PIVOT_CORE_TARGET = 0xFF00D2FF.toInt()
+    const val COLOR_PLAYER = 0xFFF3FAFF.toInt()
 
-    const val COLOR_PIVOT_HALO_INACTIVE = 0xFF2A2A2A.toInt()
-    const val COLOR_PIVOT_HALO_TARGET = 0xFF004455.toInt()
+    const val COLOR_PIVOT_CORE_INACTIVE = 0xFF2B394A.toInt()
+    const val COLOR_PIVOT_CORE_TARGET = 0xFF37C9FF.toInt()
+    const val COLOR_PIVOT_HALO_INACTIVE = 0xFF1A2938.toInt()
+    const val COLOR_PIVOT_HALO_TARGET = 0xFF66DDFF.toInt()
 
-    const val COLOR_TRAJECTORY = 0xFF888888.toInt()
+    const val COLOR_TRAJECTORY = 0xAA99DFFD.toInt()
+    const val COLOR_TRAIL = 0xFF6CD9FF.toInt()
 
-    const val COLOR_TRAIL = 0xFF00D2FF.toInt()
-    const val COLOR_BEST_SCORE = 0xFFFFD700.toInt()
+    const val COLOR_SCORE_LABEL = 0xB3C7DBEE.toInt()
+    const val COLOR_HUD_PANEL = 0x66304357.toInt()
+    const val COLOR_BEST_SCORE = 0xFFF3D98E.toInt()
+
+    const val COLOR_OVERLAY_BORDER = 0xFF284760.toInt()
+    const val COLOR_TEXT_PRIMARY = 0xFFF2FAFF.toInt()
 }

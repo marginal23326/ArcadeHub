@@ -17,6 +17,7 @@ class OrbitHopScene : BaseGameScene() {
     override fun resetGame() {
         physics.reset(Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT)
         isGameOverSoundPlayed = false
+        isGameStarted = true
         isGameOver = false
         isPaused = false
         score = 0
@@ -39,12 +40,14 @@ class OrbitHopScene : BaseGameScene() {
     }
 
     override fun draw(canvas: Canvas) {
-        renderer.draw(canvas, physics, Constants.LOGIC_WIDTH, Constants.LOGIC_HEIGHT, highScore, isPaused)
-    }
-
-    override fun handleStartInput(action: InputAction) {
-        super.handleStartInput(action)
-        if (isGameStarted && action == InputAction.SELECT) handleGameInput(action, true)
+        renderer.draw(
+            canvas,
+            physics,
+            Constants.LOGIC_WIDTH,
+            Constants.LOGIC_HEIGHT,
+            highScore,
+            isPaused
+        )
     }
 
     override fun handleGameInput(action: InputAction, isDown: Boolean) {
