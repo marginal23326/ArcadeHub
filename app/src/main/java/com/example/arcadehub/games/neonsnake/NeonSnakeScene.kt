@@ -113,11 +113,16 @@ class NeonSnakeScene : BaseGameScene() {
     private fun startReplayMode() {
         this.isGameOver = true
         SoundManager.playGameOver()
-        if (!isRobotVsRobotMode) checkNewHighScore()
-        this.finalScore = physics.player.score
+        if (!isRobotVsRobotMode) {
+            checkNewHighScore()
 
-        if (physics.gameOverReason == "YOU WON") SnakeStats.recordWin(selectedLevel)
-        else if (physics.gameOverReason == "ROBOT WON") SnakeStats.recordLoss(selectedLevel)
+            when (physics.gameOutcome) {
+                SnakeGameOutcome.P1_WIN -> SnakeStats.recordWin(selectedLevel)
+                SnakeGameOutcome.AI_WIN -> SnakeStats.recordLoss(selectedLevel)
+                else -> {}
+            }
+        }
+        this.finalScore = physics.player.score
 
         replayData = physics.getReplayHistory()
         replayIndex = 0

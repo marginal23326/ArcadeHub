@@ -4,6 +4,13 @@ import com.example.arcadehub.managers.SoundManager
 import kotlin.math.abs
 import kotlin.random.Random
 
+enum class SnakeGameOutcome {
+    NONE,
+    P1_WIN,
+    AI_WIN,
+    DRAW
+}
+
 class SnakePhysics {
 
     lateinit var player: SnakeEntity
@@ -22,6 +29,7 @@ class SnakePhysics {
 
     private var moveTimer = 0f
     var isGameOver = false
+    var gameOutcome = SnakeGameOutcome.NONE
     var gameOverReason = ""
 
     private val inputQueue = ArrayDeque<GridDir>()
@@ -37,6 +45,8 @@ class SnakePhysics {
 
     fun reset() {
         isGameOver = false
+        gameOutcome = SnakeGameOutcome.NONE
+        gameOverReason = ""
         moveTimer = 0f
         speedDelay = SnakeConfig.GAME_SPEED_SECONDS
 
@@ -220,10 +230,19 @@ class SnakePhysics {
     private fun finalizeGameOver() {
         if (isGameOver) return
         isGameOver = true
-        gameOverReason = when {
-            !player.isAlive && !ai.isAlive -> "DRAW"
-            !player.isAlive -> "RED ROBOT WON"
-            else -> if (isAutoPilot) "BLUE ROBOT WON" else "YOU WON"
+        when {
+            !player.isAlive && !ai.isAlive -> {
+                gameOutcome = SnakeGameOutcome.DRAW
+                gameOverReason = "DRAW"
+            }
+            !player.isAlive -> {
+                gameOutcome = SnakeGameOutcome.AI_WIN
+                gameOverReason = "RED ROBOT WON"
+            }
+            else -> {
+                gameOutcome = SnakeGameOutcome.P1_WIN
+                gameOverReason = if (isAutoPilot) "BLUE ROBOT WON" else "YOU WON"
+            }
         }
     }
 
