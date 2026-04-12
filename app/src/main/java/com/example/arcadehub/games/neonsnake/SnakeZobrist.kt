@@ -34,14 +34,6 @@ object SnakeZobrist {
         isInit = true
     }
 
-    // Used only for testing to sync random values with JS
-    fun setManualTables(newTable: Array<Array<LongArray>>, myH: LongArray, enH: LongArray) {
-        table = newTable
-        System.arraycopy(myH, 0, myHealthTable, 0, 101)
-        System.arraycopy(enH, 0, enemyHealthTable, 0, 101)
-        isInit = true
-    }
-
     fun computeHash(grid: SnakeGrid, myHealth: Int, enemyHealth: Int): Long {
         if (!isInit) init(grid.width, grid.height)
 
