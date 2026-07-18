@@ -1,6 +1,5 @@
 package com.example.arcadehub.games.neonsnake
 
-import android.graphics.Color
 import androidx.core.graphics.toColorInt
 
 object SnakeConfig {
@@ -37,15 +36,16 @@ object SnakeConfig {
     }
 
     // --- VISUALS ---
-    val COLOR_BG = "#050505".toColorInt()
-    val COLOR_GRID = "#1a1a1a".toColorInt()
-    val COLOR_P1_HEAD = "#00ccff".toColorInt()
-    val COLOR_P1_BODY = "#0099cc".toColorInt()
-    val COLOR_P1_TAIL = "#004466".toColorInt()
-    val COLOR_AI_HEAD = "#ff0055".toColorInt()
-    val COLOR_AI_BODY = "#cc0044".toColorInt()
-    val COLOR_AI_TAIL = "#660022".toColorInt()
-    val COLOR_FOOD = Color.YELLOW
+    val COLOR_BG = "#090D12".toColorInt()
+    val COLOR_BOARD_BORDER = "#30363D".toColorInt()
+    val COLOR_GRID = "#21262D".toColorInt()
+    val COLOR_P1_HEAD = "#58A6FF".toColorInt()
+    val COLOR_P1_BODY = "#1F6FEB".toColorInt()
+    val COLOR_AI_HEAD = "#FF7B72".toColorInt()
+    val COLOR_AI_BODY = "#D73A49".toColorInt()
+    val COLOR_FOOD = "#3FB950".toColorInt()
+    val COLOR_FOOD_OUTLINE = "#7EE787".toColorInt()
+    val COLOR_SNAKE_EYE = "#0D1117".toColorInt()
 }
 
 object SnakeStats {

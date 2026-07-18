@@ -10,6 +10,7 @@ import kotlin.math.roundToInt
 
 class SnakeRenderer {
 
+    private val boardBorderPaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_BOARD_BORDER, Paint.Style.STROKE, strokeWidth = 4f)
     private val gridPaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_GRID, Paint.Style.STROKE, strokeWidth = 2f)
     private val wallPaint = GraphicsUtils.createPaint(Color.DKGRAY).apply {
         style = Paint.Style.FILL_AND_STROKE
@@ -17,10 +18,13 @@ class SnakeRenderer {
     }
     private val wallOutlinePaint = GraphicsUtils.createPaint(Color.GRAY, Paint.Style.STROKE, strokeWidth = 2f)
 
-    private val foodPaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_FOOD).apply {
-        setShadowLayer(15f, 0f, 0f, SnakeConfig.COLOR_FOOD)
-    }
-    private val snakePaint = Paint().apply { isAntiAlias = true }
+    private val foodFillPaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_FOOD)
+    private val foodOutlinePaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_FOOD_OUTLINE, Paint.Style.STROKE, strokeWidth = 3f)
+    private val snakeBodyPaint = Paint().apply { isAntiAlias = true; style = Paint.Style.STROKE; strokeCap = Paint.Cap.BUTT }
+    private val snakeJointPaint = Paint().apply { isAntiAlias = true; style = Paint.Style.FILL }
+    private val snakeHeadPaint = Paint().apply { isAntiAlias = true; style = Paint.Style.FILL }
+    private val snakeEyePaint = GraphicsUtils.createPaint(SnakeConfig.COLOR_SNAKE_EYE)
+    private val headRect = RectF()
     private val hudTextPaint = GraphicsUtils.createPaint(Color.WHITE, textSize = 40f, typeface = Typeface.DEFAULT_BOLD)
     private val barBgPaint = GraphicsUtils.createPaint(Color.DKGRAY)
     private val barFillPaint = Paint().apply { style = Paint.Style.FILL }
@@ -94,22 +98,25 @@ class SnakeRenderer {
             canvas.drawLine(0f, y, width.toFloat(), y, gridPaint)
         }
 
+        // Draw Board Border
+        canvas.drawRect(0f, offsetY, width.toFloat(), offsetY + gridH, boardBorderPaint)
+
         // Draw Walls
         for (x in 0 until grid.width) {
             for (y in 0 until grid.height) {
                 if (grid[x, y] == 9) { // 9 is Wall
-                    drawCell(canvas, x, y, cellSize, offsetY, wallPaint, false, 0f)
-                    drawCell(canvas, x, y, cellSize, offsetY, wallOutlinePaint, false, 0f)
+                    drawCell(canvas, x, y, cellSize, offsetY, wallPaint)
+                    drawCell(canvas, x, y, cellSize, offsetY, wallOutlinePaint)
                 }
             }
         }
 
         // Draw Foods
-        foods.forEach { f -> drawCell(canvas, f.x, f.y, cellSize, offsetY, foodPaint, true, 0f) }
+        foods.forEach { f -> drawFood(canvas, f.x, f.y, cellSize, offsetY) }
 
         // Draw Snakes
-        drawSnake(canvas, player.body, cellSize, offsetY, SnakeConfig.COLOR_P1_HEAD, SnakeConfig.COLOR_P1_BODY, SnakeConfig.COLOR_P1_TAIL)
-        drawSnake(canvas, ai.body, cellSize, offsetY, SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY, SnakeConfig.COLOR_AI_TAIL)
+        drawSnake(canvas, player.body, cellSize, offsetY, SnakeConfig.COLOR_P1_HEAD, SnakeConfig.COLOR_P1_BODY)
+        drawSnake(canvas, ai.body, cellSize, offsetY, SnakeConfig.COLOR_AI_HEAD, SnakeConfig.COLOR_AI_BODY)
 
         drawHud(canvas, player, ai, width, highScore, isRobotMode, speedDelay)
     }
@@ -166,29 +173,81 @@ class SnakeRenderer {
         c.drawText("$hp", cx, cy, healthNumPaint)
     }
 
-    private fun drawSnake(canvas: Canvas, body: List<Point>, cellSize: Float, offY: Float, hCol: Int, bCol: Int, tCol: Int) {
-        body.forEachIndexed { index, point ->
-            val isHead = index == 0
-            snakePaint.color = if (isHead) hCol else lerpColor(bCol, tCol, index.toFloat() / body.size)
+    /** Center of a grid cell, in pixels. */
+    private fun cellCenterX(gx: Int, size: Float) = gx * size + size / 2f
+    private fun cellCenterY(gy: Int, size: Float, offY: Float) = offY + gy * size + size / 2f
 
-            if (isHead) snakePaint.setShadowLayer(20f, 0f, 0f, hCol)
-            else snakePaint.clearShadowLayer()
+    private fun drawSnake(canvas: Canvas, body: List<Point>, cellSize: Float, offY: Float, headCol: Int, bodyCol: Int) {
+        if (body.isEmpty()) return
 
-            val shrink = if (isHead) 0f else (index.toFloat() / body.size) * (cellSize * 0.25f)
-            drawCell(canvas, point.x, point.y, cellSize, offY, snakePaint, isHead, shrink)
+        val strokeWidth = cellSize * 0.55f
+        val jointRadius = strokeWidth / 2f
+
+        // Body: one continuous thick line with round joints, GitHub-snake style.
+        if (body.size > 1) {
+            snakeBodyPaint.color = bodyCol
+            snakeBodyPaint.strokeWidth = strokeWidth
+            snakeJointPaint.color = bodyCol
+
+            for (i in 0 until body.size - 1) {
+                val x1 = cellCenterX(body[i].x, cellSize)
+                val y1 = cellCenterY(body[i].y, cellSize, offY)
+                val x2 = cellCenterX(body[i + 1].x, cellSize)
+                val y2 = cellCenterY(body[i + 1].y, cellSize, offY)
+                canvas.drawLine(x1, y1, x2, y2, snakeBodyPaint)
+            }
+            for (i in 1 until body.size) {
+                val cx = cellCenterX(body[i].x, cellSize)
+                val cy = cellCenterY(body[i].y, cellSize, offY)
+                canvas.drawCircle(cx, cy, jointRadius, snakeJointPaint)
+            }
         }
+
+        // Head: rounded square, drawn over the body.
+        val head = body[0]
+        val hx = cellCenterX(head.x, cellSize)
+        val hy = cellCenterY(head.y, cellSize, offY)
+        val headSize = cellSize * 0.8f
+        headRect.set(hx - headSize / 2f, hy - headSize / 2f, hx + headSize / 2f, hy + headSize / 2f)
+        snakeHeadPaint.color = headCol
+        canvas.drawRoundRect(headRect, cellSize * 0.25f, cellSize * 0.25f, snakeHeadPaint)
+
+        // Eyes: two dots offset in the direction of travel.
+        val (dx, dy) = if (body.size > 1) {
+            (head.x - body[1].x) to (head.y - body[1].y)
+        } else {
+            0 to 0
+        }
+        val (ox1, oy1, ox2, oy2) = when {
+            dx > 0 -> floatArrayOf(0.2f, -0.2f, 0.2f, 0.2f)
+            dx < 0 -> floatArrayOf(-0.2f, -0.2f, -0.2f, 0.2f)
+            dy > 0 -> floatArrayOf(-0.2f, 0.2f, 0.2f, 0.2f)
+            dy < 0 -> floatArrayOf(-0.2f, -0.2f, 0.2f, -0.2f)
+            else -> floatArrayOf(0.2f, -0.2f, -0.2f, -0.2f)
+        }
+
+        val eyeRadius = cellSize * 0.12f
+        canvas.drawCircle(hx + ox1 * cellSize, hy + oy1 * cellSize, eyeRadius, snakeEyePaint)
+        canvas.drawCircle(hx + ox2 * cellSize, hy + oy2 * cellSize, eyeRadius, snakeEyePaint)
     }
 
-    private fun drawCell(c: Canvas, gx: Int, gy: Int, size: Float, offY: Float, paint: Paint, isHead: Boolean, shrink: Float) {
-        val pad = 4f + shrink
+    private fun drawFood(c: Canvas, gx: Int, gy: Int, size: Float, offY: Float) {
+        val cx = cellCenterX(gx, size)
+        val cy = cellCenterY(gy, size, offY)
+        val radius = size * 0.35f
+        c.drawCircle(cx, cy, radius, foodFillPaint)
+        c.drawCircle(cx, cy, radius, foodOutlinePaint)
+    }
+
+    private fun drawCell(c: Canvas, gx: Int, gy: Int, size: Float, offY: Float, paint: Paint) {
+        val pad = 4f
         rect.set(
             gx * size + pad,
             offY + gy * size + pad,
             (gx + 1) * size - pad,
             offY + (gy + 1) * size - pad
         )
-        val r = if (isHead) 16f else 8f
-        c.drawRoundRect(rect, r, r, paint)
+        c.drawRoundRect(rect, 8f, 8f, paint)
     }
 
     private fun drawOverlay(canvas: Canvas, w: Int, h: Int, title: String, score: Int, level: Int) {
@@ -199,12 +258,5 @@ class SnakeRenderer {
             subMsg = "AI LEVEL: $level",
             footerMsg = "CENTER to Retry | BACK to Hub"
         )
-    }
-
-    private fun lerpColor(s: Int, e: Int, f: Float): Int {
-        val r = (Color.red(s) + (Color.red(e) - Color.red(s)) * f).toInt()
-        val g = (Color.green(s) + (Color.green(e) - Color.green(s)) * f).toInt()
-        val b = (Color.blue(s) + (Color.blue(e) - Color.blue(s)) * f).toInt()
-        return Color.rgb(r, g, b)
     }
 }
