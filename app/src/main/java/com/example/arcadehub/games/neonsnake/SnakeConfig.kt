@@ -11,30 +11,6 @@ object SnakeConfig {
     const val MIN_FOOD = 2
     const val FOOD_SPAWN_CHANCE_PERCENT = 15
 
-    object Scores {
-        const val WIN = 1_000_000_000.0
-        const val LOSS = -1_000_000_000.0
-        const val DRAW = -100_000_000.0
-
-        const val TRAP_DANGER = -648_732_664.0
-        const val STRATEGIC_SQUEEZE = -31_596_121.0
-        const val ENEMY_TRAPPED = 165_629_600.0
-
-        const val HEAD_ON_COLLISION = -263_709_044.0
-        const val TIGHT_SPOT = -24_780.0
-
-        const val LENGTH = 1_000.0
-        const val EAT_REWARD = 250_507.0
-
-        const val TERRITORY_CONTROL = 3_292.0
-        const val KILL_PRESSURE = 253_847.0
-
-        const val FOOD_CURVE_INTENSITY = 5.0
-        const val FOOD_CURVE_EXPONENT = 75.0
-
-        const val AGGRESSION = 2_378.0
-    }
-
     // --- VISUALS ---
     val COLOR_BG = "#090D12".toColorInt()
     val COLOR_BOARD_BORDER = "#30363D".toColorInt()
