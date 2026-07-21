@@ -66,30 +66,26 @@ class HeuristicsTest {
         val buffers = SearchBuffers(9, 5)
         val score = Heuristics.evaluate(grid, me, enemy, null, cfg, buffers)
 
-        // Not required to be exactly zero (health-based food panic isn't perfectly symmetric
-        // without food on the board), but should be nowhere near a win/loss/trap magnitude.
         assertTrue(kotlin.math.abs(score) < 1_000_000)
     }
 
     @Test
     fun `being adjacent to a shorter enemy head grants kill pressure`() {
-        val grid = AiGrid.create(8, 8)
         val cfg = AiConfig.default()
         val buffers = SearchBuffers(8, 8)
 
-        val me = agentAt(listOf(Point(2, 2), Point(2, 3), Point(2, 4))) // len 3
-        val enemyAdjacent = agentAt(listOf(Point(3, 2))) // len 1, one step from me
-        val enemyFar = agentAt(listOf(Point(7, 7)))
-        for (i in 0 until me.body.len) grid.set(me.body.x(i), me.body.y(i), 2)
+        val me = agentAt(listOf(Point(4, 4), Point(4, 5))) // len 2
 
-        val gridAdjacent = grid.copyOf()
-        gridAdjacent.set(3, 2, 3)
-        val gridFar = grid.copyOf()
-        gridFar.set(7, 7, 3)
+        fun scoreAtDistance(dist: Int): Int {
+            val enemyPos = Point(4 + dist, 4)
+            val enemy = agentAt(listOf(enemyPos)) // len 1, always shorter than me
+            val grid = AiGrid.create(8, 8)
+            grid.set(4, 4, 2)
+            grid.set(4, 5, 2)
+            grid.set(enemyPos.x, enemyPos.y, 3)
+            return Heuristics.evaluate(grid, me, enemy, null, cfg, buffers)
+        }
 
-        val scoreAdjacent = Heuristics.evaluate(gridAdjacent, me, enemyAdjacent, null, cfg, buffers)
-        val scoreFar = Heuristics.evaluate(gridFar, me, enemyFar, null, cfg, buffers)
-
-        assertTrue(scoreAdjacent > scoreFar)
+        assertTrue(scoreAtDistance(1) > scoreAtDistance(2))
     }
 }

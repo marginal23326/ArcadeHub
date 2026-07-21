@@ -103,13 +103,13 @@ class TranspositionTableTest {
     }
 
     @Test
-    fun `depthBasedEntries matches the strongsnake tiering exactly`() {
-        assertEquals(1 shl 15, TranspositionTable.depthBasedEntries(4))
-        assertEquals(1 shl 17, TranspositionTable.depthBasedEntries(8))
-        assertEquals(1 shl 19, TranspositionTable.depthBasedEntries(12))
-        assertEquals(1 shl 21, TranspositionTable.depthBasedEntries(16))
-        assertEquals(1 shl 21, TranspositionTable.depthBasedEntries(20))
-        assertEquals(1 shl 22, TranspositionTable.depthBasedEntries(21))
+    fun `depthBasedEntries scales up with depth in tiers sized for a constrained device`() {
+        assertEquals(1 shl 13, TranspositionTable.depthBasedEntries(4))
+        assertEquals(1 shl 15, TranspositionTable.depthBasedEntries(8))
+        assertEquals(1 shl 17, TranspositionTable.depthBasedEntries(12))
+        assertEquals(1 shl 19, TranspositionTable.depthBasedEntries(16))
+        assertEquals(1 shl 19, TranspositionTable.depthBasedEntries(20))
+        assertEquals(1 shl 20, TranspositionTable.depthBasedEntries(21))
     }
 
     @Test
@@ -119,5 +119,19 @@ class TranspositionTableTest {
         tt.set(5L, 0, 7, TT_FLAG_EXACT, 255, 255, 255)
         val entry = tt.get(5L)!!
         assertFalse(entry.hasMove())
+    }
+
+    @Test
+    fun `SharedTranspositionTable reset drops the instance and a fresh one is lazily rebuilt`() {
+        val before = SharedTranspositionTable.get()
+        before.prepareForSearch(1 shl 10)
+        before.set(1L, 5, 10, TT_FLAG_EXACT, 0, 0, 0)
+
+        SharedTranspositionTable.reset()
+
+        val after = SharedTranspositionTable.get()
+        assertTrue(after !== before)
+        after.prepareForSearch(1 shl 10)
+        assertNull(after.get(1L)) // fresh table, the old entry is gone
     }
 }

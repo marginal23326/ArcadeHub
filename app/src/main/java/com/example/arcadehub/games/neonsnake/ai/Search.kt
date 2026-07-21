@@ -79,7 +79,7 @@ fun negamax(
     val pvY = if (hasPv) probe.mvY else -1
 
     if (moveList.count > 1) {
-        sortMoves(moveList, hasPv, pvX, pvY, ctx.historyTable[side], headIdx, grid)
+        sortMoves(moveList, hasPv, pvX, pvY, ctx.historyTable[side], headIdx, grid, buffers.moveOrderDistScratch)
         if (isRoot && ctx.threadId > 0) {
             rotateLeft(moveList, ctx.threadId % moveList.count)
         }
@@ -284,22 +284,62 @@ private fun calcModScore(
     return saturatingAdd(ms, rootBonus)
 }
 
-private fun sortMoves(moveList: MoveList, hasPv: Boolean, pvX: Int, pvY: Int, history: IntArray, headIdx: Int, grid: AiGrid) {
+private fun sortMoves(
+    moveList: MoveList,
+    hasPv: Boolean,
+    pvX: Int,
+    pvY: Int,
+    history: IntArray,
+    headIdx: Int,
+    grid: AiGrid,
+    distScratch: IntArray
+) {
     val moves = moveList.moves
     val count = moveList.count
+
+    for (i in 0 until count) distScratch[i] = 1000
+    val words = grid.food.words
+    for (w in words.indices) {
+        var v = words[w]
+        while (v != 0L) {
+            val bit = java.lang.Long.numberOfTrailingZeros(v)
+            val idx = (w shl 6) or bit
+            val fx = idx % grid.width
+            val fy = idx / grid.width
+            for (i in 0 until count) {
+                val d = abs(MoveList.xOfPacked(moves[i]) - fx) + abs(MoveList.yOfPacked(moves[i]) - fy)
+                if (d < distScratch[i]) distScratch[i] = d
+            }
+            v = v and (v - 1)
+        }
+    }
+
     for (i in 1 until count) {
         val key = moves[i]
+        val keyDist = distScratch[i]
         var j = i - 1
-        while (j >= 0 && compareMoves(moves[j], key, hasPv, pvX, pvY, history, headIdx, grid) > 0) {
+        while (j >= 0 && compareMoves(moves[j], distScratch[j], key, keyDist, hasPv, pvX, pvY, history, headIdx, grid) > 0) {
             moves[j + 1] = moves[j]
+            distScratch[j + 1] = distScratch[j]
             j--
         }
         moves[j + 1] = key
+        distScratch[j + 1] = keyDist
     }
 }
 
-/** Positive if `a` should sort after `b` (i.e. `b` belongs first). */
-private fun compareMoves(a: Int, b: Int, hasPv: Boolean, pvX: Int, pvY: Int, history: IntArray, headIdx: Int, grid: AiGrid): Int {
+private fun compareMoves(
+    a: Int,
+    aDist: Int,
+    b: Int,
+    bDist: Int,
+    hasPv: Boolean,
+    pvX: Int,
+    pvY: Int,
+    history: IntArray,
+    headIdx: Int,
+    grid: AiGrid
+): Int {
     val ax = MoveList.xOfPacked(a)
     val ay = MoveList.yOfPacked(a)
     val aDir = MoveList.dirIntOfPacked(a)
@@ -316,32 +356,14 @@ private fun compareMoves(a: Int, b: Int, hasPv: Boolean, pvX: Int, pvY: Int, his
     val histB = history[headIdx * 4 + bDir]
     if (histA != histB) return if (histA > histB) -1 else 1 // descending history score
 
-    var minA = 1000
-    var minB = 1000
-    val words = grid.food.words
-    for (w in words.indices) {
-        var v = words[w]
-        while (v != 0L) {
-            val bit = java.lang.Long.numberOfTrailingZeros(v)
-            val idx = (w shl 6) or bit
-            val fx = idx % grid.width
-            val fy = idx / grid.width
-            val da = abs(ax - fx) + abs(ay - fy)
-            val db = abs(bx - fx) + abs(by - fy)
-            if (da < minA) minA = da
-            if (db < minB) minB = db
-            v = v and (v - 1)
-        }
-    }
-
-    if (minA == minB) {
+    if (aDist == bDist) {
         val cx = grid.width / 2.0
         val cy = grid.height / 2.0
         val ca = abs(ax - cx) + abs(ay - cy)
         val cb = abs(bx - cx) + abs(by - cy)
         return ca.compareTo(cb)
     }
-    return minA - minB
+    return aDist - bDist
 }
 
 private fun rotateLeft(moveList: MoveList, shift: Int) {

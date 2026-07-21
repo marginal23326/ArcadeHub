@@ -18,7 +18,8 @@ object AiEngine {
         mapType: SnakeMapGenerator.MapType,
         cfg: AiConfig
     ): GridDir {
-        val grid = AiGrid.create(cols, rows, wallsFor(cols, rows, mapType))
+        val layout = layoutFor(cols, rows, mapType)
+        val grid = AiGrid.create(cols, rows, layout.walls, layout.topology)
 
         for (f in foods) grid.set(f.x, f.y, 1)
         for (p in me.body) grid.set(p.x, p.y, 2)
@@ -33,7 +34,8 @@ object AiEngine {
         enemyAgent.health = enemy.health
 
         val callerBuffers = threadState(cols, rows).buffers
-        val distMap = Pathfinding.foodDistanceMap(grid, callerBuffers)
+
+        val distMap = if (cfg.maxDepth <= 0) Pathfinding.foodDistanceMap(grid, callerBuffers) else null
 
         val zobrist = ZobristCache.forSize(cols, rows)
         val initialHash = zobrist.computeHash(grid, meAgent.health, enemyAgent.health)
@@ -96,8 +98,11 @@ object AiEngine {
     private fun resolveTtEntries(cfg: AiConfig): Int =
         if (cfg.runtime.hashEntries > 0) cfg.runtime.hashEntries else TranspositionTable.depthBasedEntries(cfg.maxDepth)
 
-    private fun resolveThreadCount(cfg: AiConfig): Int =
-        if (cfg.runtime.threads > 0) cfg.runtime.threads else Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+    private fun resolveThreadCount(cfg: AiConfig): Int {
+        if (cfg.runtime.threads > 0) return cfg.runtime.threads
+        val cores = Runtime.getRuntime().availableProcessors()
+        return (cores - 1).coerceAtLeast(1)
+    }
 
     private fun resetHistory(table: Array<IntArray>) {
         table[0].fill(0)
@@ -119,11 +124,13 @@ object AiEngine {
         return fresh
     }
 
-    private val wallCache = ConcurrentHashMap<Triple<Int, Int, SnakeMapGenerator.MapType>, BitBoard>()
+    private class MapLayout(val walls: BitBoard, val topology: BoardTopology)
 
-    private fun wallsFor(cols: Int, rows: Int, mapType: SnakeMapGenerator.MapType): BitBoard {
+    private val layoutCache = ConcurrentHashMap<Triple<Int, Int, SnakeMapGenerator.MapType>, MapLayout>()
+
+    private fun layoutFor(cols: Int, rows: Int, mapType: SnakeMapGenerator.MapType): MapLayout {
         val key = Triple(cols, rows, mapType)
-        return wallCache.getOrPut(key) {
+        return layoutCache.getOrPut(key) {
             val tempGrid = SnakeGrid(cols, rows)
             SnakeMapGenerator.applyMap(tempGrid, mapType)
             val bits = BitBoard(BitBoard.wordsFor(cols * rows))
@@ -132,7 +139,15 @@ object AiEngine {
                     if (tempGrid[x, y] == 9) bits.set(y * cols + x)
                 }
             }
-            bits
+            val base = BoardTopology(cols, rows, bits.numWords)
+            val topology = if (bits.any()) base.withBlockedCells(bits) else base
+            MapLayout(bits, topology)
         }
+    }
+
+    fun releaseResources() {
+        AiWorkerPool.shutdown()
+        SharedTranspositionTable.reset()
+        threadLocalState.remove()
     }
 }

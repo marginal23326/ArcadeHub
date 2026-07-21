@@ -11,6 +11,7 @@ import com.example.arcadehub.core.BaseGameScene
 import com.example.arcadehub.core.Constants
 import com.example.arcadehub.core.GraphicsUtils
 import com.example.arcadehub.core.InputAction
+import com.example.arcadehub.games.neonsnake.ai.AiEngine
 import com.example.arcadehub.managers.SoundManager
 import kotlin.math.max
 import kotlin.math.min
@@ -107,6 +108,10 @@ class NeonSnakeScene : BaseGameScene() {
         menuRowIndex = 0
         menuPulseTime = 0f
         particles.clear()
+    }
+
+    override fun exit() {
+        AiEngine.releaseResources()
     }
 
     override fun update(dt: Float) {

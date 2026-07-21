@@ -158,11 +158,11 @@ class TranspositionTable(initialEntries: Int) {
         }
 
         fun depthBasedEntries(maxDepth: Int): Int = when {
-            maxDepth <= 4 -> 1 shl 15 // 32K entries (~1MB)
-            maxDepth <= 8 -> 1 shl 17 // 128K entries (~4MB)
-            maxDepth <= 12 -> 1 shl 19 // 512K entries (~16MB)
-            maxDepth <= 20 -> 1 shl 21 // 2M entries (~64MB)
-            else -> 1 shl 22 // 4M entries (~128MB)
+            maxDepth <= 4 -> 1 shl 13 // 8K entries (~192KB)
+            maxDepth <= 8 -> 1 shl 15 // 32K entries (~768KB)
+            maxDepth <= 12 -> 1 shl 17 // 128K entries (~3MB)
+            maxDepth <= 20 -> 1 shl 19 // 512K entries (~12MB)
+            else -> 1 shl 20 // 1M entries (~24MB)
         }
 
         private fun packMeta(generation: Int, depth: Int, flag: Int, mvX: Int, mvY: Int, mvDir: Int): Long =
@@ -194,6 +194,12 @@ object SharedTranspositionTable {
             val created = TranspositionTable(1 shl 15)
             instance = created
             return created
+        }
+    }
+
+    fun reset() {
+        synchronized(this) {
+            instance = null
         }
     }
 }

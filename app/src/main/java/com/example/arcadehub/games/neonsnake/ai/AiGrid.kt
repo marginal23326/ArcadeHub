@@ -94,7 +94,12 @@ class AiGrid private constructor(
             val base = BoardTopology(width, height, numWords)
             val walls = wallCells ?: BitBoard(numWords)
             val topology = if (walls.any()) base.withBlockedCells(walls) else base
-            return AiGrid(width, height, topology, BitBoard(numWords), BitBoard(numWords), BitBoard(numWords), walls)
+            return create(width, height, walls, topology)
+        }
+
+        fun create(width: Int, height: Int, wallCells: BitBoard, topology: BoardTopology): AiGrid {
+            val numWords = topology.numWords
+            return AiGrid(width, height, topology, BitBoard(numWords), BitBoard(numWords), BitBoard(numWords), wallCells)
         }
     }
 }

@@ -38,4 +38,11 @@ object AiWorkerPool {
         }
         for (f in futures) f.get()
     }
+
+    @Synchronized
+    fun shutdown() {
+        executor?.shutdown()
+        executor = null
+        poolSize = 0
+    }
 }

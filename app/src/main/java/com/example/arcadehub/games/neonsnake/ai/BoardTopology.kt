@@ -31,10 +31,10 @@ class BoardTopology(val width: Int, val height: Int, val numWords: Int) {
         val inv = 64 - shift
         val w = b.words
         val o = out.words
-        for (i in numWords - 1 downTo 1) {
-            o[i] = (w[i] shl shift) or (w[i - 1] ushr inv)
+        for (i in 0 until numWords - 1) {
+            o[i] = (w[i] ushr shift) or (w[i + 1] shl inv)
         }
-        o[0] = w[0] shl shift
+        o[numWords - 1] = w[numWords - 1] ushr shift
         out.andAssign(validCells)
     }
 
@@ -43,10 +43,10 @@ class BoardTopology(val width: Int, val height: Int, val numWords: Int) {
         val inv = 64 - shift
         val w = b.words
         val o = out.words
-        for (i in 0 until numWords - 1) {
-            o[i] = (w[i] ushr shift) or (w[i + 1] shl inv)
+        for (i in numWords - 1 downTo 1) {
+            o[i] = (w[i] shl shift) or (w[i - 1] ushr inv)
         }
-        o[numWords - 1] = w[numWords - 1] ushr shift
+        o[0] = w[0] shl shift
         out.andAssign(validCells)
     }
 

@@ -48,6 +48,8 @@ class SearchBuffers(width: Int, height: Int) {
 
     val moveListPool = Array(MAX_PLY) { MoveList() }
 
+    val moveOrderDistScratch = IntArray(4)
+
     // --- Transposition table probes ---
     val ttProbe = TtProbe()
 

@@ -88,7 +88,7 @@ object ZobristCache {
 /** 0x9E3779B97F4A7C15 as a signed Long. */
 private const val GOLDEN_GAMMA = -7046029254386353131L
 
-/** SplitMix64 PRNG - fast, dependency-free, good distribution; matches strongsnake's generator. */
+/** SplitMix64 PRNG */
 private class SplitMix64(seed: Long) {
     private var state: Long = seed
 
